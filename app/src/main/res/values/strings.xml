@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="describe">Cumulus 后台服务\n此服务用于收集前台应用包名和电池数据.</string>
+</resources>

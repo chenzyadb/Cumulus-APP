@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AnimationActivity" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/anim_left</item>
+        <item name="android:activityOpenExitAnimation">@anim/anim_left_sen</item>
+        <item name="android:activityCloseEnterAnimation">@anim/anim_right</item>
+        <item name="android:activityCloseExitAnimation">@anim/anim_right_sen</item>
+    </style>
+
+    <style name="Theme.Cumulus" parent="@style/Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowAnimationStyle">@style/AnimationActivity</item>
+    </style>
+</resources>

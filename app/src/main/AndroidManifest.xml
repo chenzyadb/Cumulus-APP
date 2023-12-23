@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <application
+        android:icon="@mipmap/ic_launcher"
+        android:label="Cumulus"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/Theme.Cumulus"
+        tools:targetApi="34">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Cumulus">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="设置"
+            android:theme="@style/Theme.Cumulus" />
+
+        <activity
+            android:name=".PowerConsumptionAnalysisActivity"
+            android:exported="false"
+            android:label="耗电分析"
+            android:theme="@style/Theme.Cumulus" />
+
+        <activity
+            android:name=".ChargingProcessActivity"
+            android:exported="false"
+            android:label="充电过程"
+            android:theme="@style/Theme.Cumulus" />
+
+        <activity
+            android:name=".AdditionalFunctionActivity"
+            android:exported="false"
+            android:label="附加功能"
+            android:theme="@style/Theme.Cumulus" />
+
+        <service
+            android:name=".BackgroundService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/configurate" />
+        </service>
+
+        <service
+            android:name=".FloatMonitorService"
+            android:exported="false"/>
+    </application>
+
+</manifest>
