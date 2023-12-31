@@ -222,7 +222,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                             screenOnDurationText += "${minute}分"
                         }
                     } else {
-                        screenOnDurationText = "0"
+                        screenOnDurationText = "小于1分"
                     }
                     Text(
                         text = "亮屏时长",
@@ -307,7 +307,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                             screenOffDurationText += "${minute}分"
                         }
                     } else {
-                        screenOffDurationText = "0"
+                        screenOffDurationText = "小于1分"
                     }
                     Text(
                         text = "熄屏时长",
@@ -422,7 +422,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
     }
 
     private fun RunRecordAnalysis() {
-        CoroutineScope(Dispatchers.Main).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             val recordAnalysis = BattStatsRecordAnalysis(applicationContext, BatteryStatsRecorder.getCurRecord())
             recordAnalysis.doAnalysis()
             screenOnCapacityCost = recordAnalysis.getScreenOnCapacityCost()

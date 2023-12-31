@@ -101,7 +101,7 @@ class BattStatsRecordAnalysis(
                         screenOffDuration += duration
                         screenOffCapacityCost += batteryCapacityDiff
                     }
-                } else if (batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING) {
+                } else if (batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING && batteryCapacity < 100) {
                     chargingCapacityList.add(batteryCapacity)
                     chargingTemperatureList.add(batteryTemperature)
                     chargingPowerList.add(batteryPower)
@@ -197,8 +197,7 @@ class BattStatsRecordAnalysis(
             }
 
             if (chargingCapacity > 10) {
-                val chargingEnergy = chargingAveragePower * chargingDuration / 3600
-                estimatingBatteryCapacity = (chargingEnergy * 100 / chargingCapacity).toInt() * 1000 / 3880
+                estimatingBatteryCapacity = (chargingEnergyIncrease / chargingCapacity * 100 / 3600 / 3.88f).toInt()
             }
 
             for ((pkgName, list) in appsPowerListMap.entries) {

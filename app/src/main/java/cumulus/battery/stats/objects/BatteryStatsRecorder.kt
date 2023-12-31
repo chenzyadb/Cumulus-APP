@@ -6,7 +6,9 @@ import com.alibaba.fastjson2.JSON
 import com.alibaba.fastjson2.JSONArray
 import com.alibaba.fastjson2.JSONObject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -22,7 +24,7 @@ object BatteryStatsRecorder {
     private var record: JSONArray? = null
 
     fun init(context: Context) {
-        runBlocking {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 if (recordFile != null && recordName != "null" && record != null) {
                     val recordJson = JSON.parseObject(recordFile!!.readText(Charsets.UTF_8))
@@ -66,7 +68,7 @@ object BatteryStatsRecorder {
         batteryCurrent: Int,
         batteryTemperature: Int
     ) {
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 if (record == null) {
                     return@withLock
@@ -112,8 +114,9 @@ object BatteryStatsRecorder {
         }
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     fun saveRecord() {
-        CoroutineScope(Dispatchers.IO).launch {
+        GlobalScope.launch {
             mutex.withLock {
                 if (recordFile == null || recordName == "null" || record == null) {
                     return@withLock
@@ -127,7 +130,7 @@ object BatteryStatsRecorder {
     }
 
     fun copyRecord(origName: String, newName: String) {
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 if (recordFile == null) {
                     return@withLock
@@ -147,7 +150,7 @@ object BatteryStatsRecorder {
     }
 
     fun clearRecord() {
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 if (recordFile == null) {
                     return@withLock
@@ -161,7 +164,7 @@ object BatteryStatsRecorder {
     }
 
     fun deleteRecord(name: String) {
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 if (name == recordName) {
                     record = JSONArray()
@@ -178,7 +181,7 @@ object BatteryStatsRecorder {
     }
 
     fun deleteAllRecord() {
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 recordName = "default"
                 record = JSONArray()

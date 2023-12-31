@@ -20,20 +20,20 @@ object BatteryStatsProvider {
     private var adjustFile: File? = null
 
     fun init(context: Context) {
-        runBlocking {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 if (adjustFile != null) {
                     return@withLock
                 }
                 val filesPath = context.filesDir.absolutePath
                 adjustFile = File("${filesPath}/battery_current_adjust.json")
-                if (!(adjustFile!!).exists()) {
+                if (!adjustFile!!.exists()) {
                     adjustFile!!.createNewFile()
-                    val adjustJson = JSONObject()
-                    adjustJson["dualBattery"] = false
-                    adjustJson["currentUnitUA"] = true
-                    adjustJson["currentReverse"] = false
-                    adjustFile!!.writeText(adjustJson.toJSONString(), Charsets.UTF_8)
+                    val adjustJSON = JSONObject()
+                    adjustJSON["dualBattery"] = false
+                    adjustJSON["currentUnitUA"] = true
+                    adjustJSON["currentReverse"] = false
+                    adjustFile!!.writeText(adjustJSON.toJSONString(), Charsets.UTF_8)
                 }
             }
         }
@@ -133,40 +133,46 @@ object BatteryStatsProvider {
     }
 
     fun setDualBattery(dualBattery: Boolean) {
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 if (adjustFile == null) {
                     return@withLock
                 }
-                val adjustJson = JSON.parseObject(adjustFile!!.readText(Charsets.UTF_8))
-                adjustJson["dualBattery"] = dualBattery
-                adjustFile!!.writeText(adjustJson.toJSONString(), Charsets.UTF_8)
+                val adjustJson: JSONObject? = JSON.parseObject(adjustFile!!.readText(Charsets.UTF_8))
+                if (adjustJson != null) {
+                    adjustJson["dualBattery"] = dualBattery
+                    adjustFile!!.writeText(adjustJson.toJSONString(), Charsets.UTF_8)
+                }
             }
         }
     }
 
     fun setCurrentUnitUA(currentUnitUA: Boolean) {
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 if (adjustFile == null) {
                     return@withLock
                 }
-                val adjustJson = JSON.parseObject(adjustFile!!.readText(Charsets.UTF_8))
-                adjustJson["currentUnitUA"] = currentUnitUA
-                adjustFile!!.writeText(adjustJson.toJSONString(), Charsets.UTF_8)
+                val adjustJson: JSONObject? = JSON.parseObject(adjustFile!!.readText(Charsets.UTF_8))
+                if (adjustJson != null) {
+                    adjustJson["currentUnitUA"] = currentUnitUA
+                    adjustFile!!.writeText(adjustJson.toJSONString(), Charsets.UTF_8)
+                }
             }
         }
     }
 
     fun setCurrentReverse(currentReverse: Boolean) {
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             mutex.withLock {
                 if (adjustFile == null) {
                     return@withLock
                 }
-                val adjustJson = JSON.parseObject(adjustFile!!.readText(Charsets.UTF_8))
-                adjustJson["currentReverse"] = currentReverse
-                adjustFile!!.writeText(adjustJson.toJSONString(), Charsets.UTF_8)
+                val adjustJson: JSONObject? = JSON.parseObject(adjustFile!!.readText(Charsets.UTF_8))
+                if (adjustJson != null) {
+                    adjustJson["currentReverse"] = currentReverse
+                    adjustFile!!.writeText(adjustJson.toJSONString(), Charsets.UTF_8)
+                }
             }
         }
     }

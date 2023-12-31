@@ -55,7 +55,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         BatteryStatsProvider.init(applicationContext)
         BatteryStatsRecorder.init(applicationContext)
-
         setContent {
             CumulusTheme {
                 Surface(
@@ -163,8 +162,8 @@ class MainActivity : ComponentActivity() {
             ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = 20.dp),
+                        .padding(start = 20.dp)
+                        .fillMaxSize(),
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -178,7 +177,7 @@ class MainActivity : ComponentActivity() {
                     Column(
                         modifier = Modifier
                             .padding(start = 20.dp)
-                            .fillMaxHeight(),
+                            .fillMaxSize(),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.Start
                     ) {
