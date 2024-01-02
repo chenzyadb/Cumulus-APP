@@ -1,5 +1,6 @@
 package cumulus.battery.stats
 
+import android.content.res.Resources
 import android.os.BatteryManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -62,8 +63,6 @@ class ChargingProcessActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        RunRecordAnalysis()
-
         setContent {
             CumulusTheme {
                 Surface(
@@ -125,6 +124,19 @@ class ChargingProcessActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun getResources(): Resources {
+        val resources = super.getResources()
+        val configContext = createConfigurationContext(resources.configuration)
+        return configContext.resources.apply {
+            configuration.fontScale = 1.0f
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        UpdateRecordAnalysis()
     }
 
     @Composable
@@ -421,7 +433,7 @@ class ChargingProcessActivity : ComponentActivity() {
         }
     }
 
-    private fun RunRecordAnalysis() {
+    private fun UpdateRecordAnalysis() {
         CoroutineScope(Dispatchers.Main).launch {
             val record: JSONArray?
             if (BatteryStatsProvider.getBatteryStatus(applicationContext) == BatteryManager.BATTERY_STATUS_CHARGING) {

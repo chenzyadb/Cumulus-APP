@@ -63,7 +63,6 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        RunRecordAnalysis()
         setContent {
             CumulusTheme {
                 Surface(
@@ -139,6 +138,11 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
         return configContext.resources.apply {
             configuration.fontScale = 1.0f
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        UpdateRecordAnalysis()
     }
 
     @Composable
@@ -421,8 +425,8 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
         }
     }
 
-    private fun RunRecordAnalysis() {
-        CoroutineScope(Dispatchers.Default).launch {
+    private fun UpdateRecordAnalysis() {
+        CoroutineScope(Dispatchers.Main).launch {
             val recordAnalysis = BattStatsRecordAnalysis(applicationContext, BatteryStatsRecorder.getCurRecord())
             recordAnalysis.doAnalysis()
             screenOnCapacityCost = recordAnalysis.getScreenOnCapacityCost()
