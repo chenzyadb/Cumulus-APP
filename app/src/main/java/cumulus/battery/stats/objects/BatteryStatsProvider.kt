@@ -91,7 +91,11 @@ object BatteryStatsProvider {
         intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
         val intent = context.registerReceiver(null, intentFilter)
         if (intent != null) {
-            return intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
+            val batteryVolt = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
+            if (batteryVolt < 1000) {
+                return batteryVolt * 1000;
+            }
+            return batteryVolt
         }
         return 0
     }
