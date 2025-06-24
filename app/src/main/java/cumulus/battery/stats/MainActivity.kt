@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Image(
-                                    painter = painterResource(id = R.mipmap.ic_launcher_round),
+                                    painter = painterResource(id = R.mipmap.icon_round),
                                     contentDescription = "icon",
                                     modifier = Modifier
                                         .height(40.dp)

@@ -12,7 +12,6 @@
     <application
         android:icon="@mipmap/ic_launcher"
         android:label="Cumulus"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.Cumulus"
         tools:targetApi="34">
 

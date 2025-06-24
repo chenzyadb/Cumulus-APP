@@ -69,7 +69,8 @@ class BattStatsRecordAnalysis(
                 val pkgName = item.getString("pkgName")
                 val batteryStatus = item.getIntValue("batteryStatus")
                 val batteryCapacity = item.getIntValue("batteryCapacity")
-                val batteryCapacityDiff = abs(batteryCapacity - nextItem.getIntValue("batteryCapacity"))
+                val batteryCapacityDiff =
+                    abs(batteryCapacity - nextItem.getIntValue("batteryCapacity"))
                 val batteryPower = abs(item.getIntValue("batteryPower"))
                 val batteryTemperature = item.getIntValue("batteryTemperature")
 
@@ -109,7 +110,8 @@ class BattStatsRecordAnalysis(
                     chargingDuration += duration
                 }
 
-                val batteryCapacityArrayIdx = (timeStamp - recordStartTime) * (batteryCapacityArray.size - 1) / recordDuration
+                val batteryCapacityArrayIdx =
+                    (timeStamp - recordStartTime) * (batteryCapacityArray.size - 1) / recordDuration
                 if (batteryCapacityArrayIdx in 1..batteryCapacityArray.lastIndex) {
                     batteryCapacityArray[batteryCapacityArrayIdx.toInt()] = batteryCapacity
                 }
@@ -137,7 +139,8 @@ class BattStatsRecordAnalysis(
             } else if (screenOnAveragePower > 0) {
                 val batteryCurCapacity = BatteryStatsProvider.getBatteryCapacity(context)
                 val batteryDesignCapacity = BatteryStatsProvider.getBatteryDesignCapacity(context)
-                val batteryRemainingEnergy = batteryDesignCapacity.toLong() * 3880 * 3600 / 1000 * batteryCurCapacity / 100
+                val batteryRemainingEnergy =
+                    batteryDesignCapacity.toLong() * 3880 * 3600 / 1000 * batteryCurCapacity / 100
                 remainingUsageTime = batteryRemainingEnergy / screenOnAveragePower
             }
 
@@ -156,7 +159,8 @@ class BattStatsRecordAnalysis(
                 chargingTemperatureList.forEach {
                     chargingTemperatureSum += it
                 }
-                chargingAverageTemperature = (chargingTemperatureSum / chargingTemperatureList.size).toInt()
+                chargingAverageTemperature =
+                    (chargingTemperatureSum / chargingTemperatureList.size).toInt()
             }
 
             if (chargingCapacityList.size <= 100) {
@@ -197,7 +201,8 @@ class BattStatsRecordAnalysis(
             }
 
             if (chargingCapacity > 10) {
-                estimatingBatteryCapacity = (chargingEnergyIncrease / chargingCapacity * 100 / 3600 / 3.88f).toInt()
+                estimatingBatteryCapacity =
+                    (chargingEnergyIncrease / chargingCapacity * 100 / 3600 / 3.88f).toInt()
             }
 
             for ((pkgName, list) in appsPowerListMap.entries) {

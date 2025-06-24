@@ -1,6 +1,5 @@
 [versions]
 junit = "4.13.2"
-libsu = "6.0.0"
 compose-markdown = "0.5.7"
 fastjson = "2.0.57"
 coil = "2.7.0"
@@ -19,7 +18,6 @@ android-plugin = "8.5.1"
 
 [libraries]
 junit-junit11 = { module = "junit:junit", version.ref = "junit" }
-libsu-core = { group = "com.github.topjohnwu.libsu", name = "core", version.ref = "libsu" }
 compose-markdown = { group = "com.github.jeziellago", name = "compose-markdown", version.ref = "compose-markdown" }
 fastjson2 = { group = "com.alibaba.fastjson2", name = "fastjson2", version.ref = "fastjson" }
 coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
