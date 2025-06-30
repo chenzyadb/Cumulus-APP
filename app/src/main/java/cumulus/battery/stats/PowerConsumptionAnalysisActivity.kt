@@ -471,7 +471,8 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp),
-                            line0DataArray = appPowerList.map { it / 1000 }.toTypedArray().toIntArray(),
+                            line0DataArray = appPowerList.map { it / 1000 }.toTypedArray()
+                                .toIntArray(),
                             line1DataArray = appTemperatureList.toIntArray(),
                             tick0Max = (maxPower / 1000 / 10 + 1) * 10,
                             tick1Max = (maxTemperature / 10 + 1) * 10,
