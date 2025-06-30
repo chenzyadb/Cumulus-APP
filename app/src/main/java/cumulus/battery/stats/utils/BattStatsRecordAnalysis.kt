@@ -1,480 +1,346 @@
 package cumulus.battery.stats.utils
 
-import android.content.Context
 import android.os.BatteryManager
-import com.alibaba.fastjson2.JSONArray
-import cumulus.battery.stats.objects.BatteryStatsProvider
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlin.math.abs
 
-class BattStatsRecordAnalysis(
-    private val context: Context,
-    private val record: JSONArray?
-) {
-    private val mutex = Mutex()
-    private var recordDuration: Long = 0
-    private var lastChargingCapacity: Int = 0
-    private var screenOnDuration: Long = 0
-    private var screenOffDuration: Long = 0
-    private var screenOnAveragePower: Int = 0
-    private var screenOffAveragePower: Int = 0
-    private var screenOnCapacityCost: Int = 0
-    private var screenOffCapacityCost: Int = 0
-    private var remainingUsageTime: Long = 0
-    private var batteryCapacityArray: IntArray = IntArray(0)
-    private var chargingDuration: Long = 0
-    private var chargingCapacity: Int = 0
-    private var chargingMaxPower: Int = 0
-    private var chargingAveragePower: Int = 0
-    private var chargingMaxTemperarure: Int = 0
-    private var chargingAverageTemperature: Int = 0
-    private var chargingCapacityArray: IntArray = IntArray(0)
-    private var chargingPowerArray: IntArray = IntArray(0)
-    private var chargingTemperatureArray: IntArray = IntArray(0)
-    private var estimatingBatteryCapacity: Int = 0
-    private var appsDurationMap: HashMap<String, Long> = hashMapOf()
-    private var appsMaxPowerMap: HashMap<String, Int> = hashMapOf()
-    private var appsAveragePowerMap: HashMap<String, Int> = hashMapOf()
-    private var appsMaxTemperatureMap: HashMap<String, Int> = hashMapOf()
-    private var appsAverageTemperatureMap: HashMap<String, Int> = hashMapOf()
+data class BatteryHealthReport(
+    var sampleSize: Int = 0,
+    var totalChargedPercentage: Int = 0,
+    var totalChargedCapacity: Int = 0,
+    var estimatingCapacity: Int = 0
+)
 
-    suspend fun doAnalysis() {
-        mutex.withLock {
-            if (record == null || record.size < 10) {
-                return@withLock
+class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
+    val dischargingRecords = getLastDischargingRecords()
+    val chargingRecords = getLastChargingRecords()
+
+    private fun getLastChargingRecords(): List<BatteryStatsItem> {
+        if (records.isNotEmpty()) {
+            var endPos = 0
+            for (i in records.lastIndex downTo 0) {
+                if (records[i].batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING) {
+                    endPos = i
+                    break
+                }
             }
 
-            val recordStartTime = record.getJSONObject(0).getLong("timeStamp")
-            val recordEndTime = record.getJSONObject(record.size - 1).getLong("timeStamp")
-            recordDuration = recordEndTime - recordStartTime
-            lastChargingCapacity = record.getJSONObject(0).getIntValue("batteryCapacity")
-            batteryCapacityArray = IntArray(100) { -1 }
-            batteryCapacityArray[0] = lastChargingCapacity
+            var beginPos = endPos
+            for (i in endPos downTo 0) {
+                if (records[i].batteryStatus != BatteryManager.BATTERY_STATUS_CHARGING) {
+                    beginPos = i
+                    break
+                }
+            }
+            if (beginPos == endPos) {
+                beginPos = 0
+            }
 
-            var screenOnEnergyCost: Long = 0
-            var screenOffEnergyCost: Long = 0
-            var chargingEnergyIncrease: Long = 0
-            val chargingCapacityList = mutableListOf<Int>()
-            val chargingTemperatureList = mutableListOf<Int>()
-            val chargingPowerList = mutableListOf<Int>()
-            val appsPowerListMap = hashMapOf<String, MutableList<Int>>()
-            val appsTemperatureListMap = hashMapOf<String, MutableList<Int>>()
-            for (idx in 1 until record.size) {
-                val item = record.getJSONObject(idx - 1)
-                val nextItem = record.getJSONObject(idx)
-                val timeStamp = item.getLong("timeStamp")
-                val duration = (nextItem.getLong("timeStamp") - timeStamp).toInt()
-                val pkgName = item.getString("pkgName")
-                val batteryStatus = item.getIntValue("batteryStatus")
-                val batteryCapacity = item.getIntValue("batteryCapacity")
-                val batteryCapacityDiff =
-                    abs(batteryCapacity - nextItem.getIntValue("batteryCapacity"))
-                val batteryPower = abs(item.getIntValue("batteryPower"))
-                val batteryTemperature = item.getIntValue("batteryTemperature")
+            return records.subList(beginPos, endPos)
+        }
+        return listOf()
+    }
 
-                if (batteryStatus == BatteryManager.BATTERY_STATUS_DISCHARGING ||
-                    batteryStatus == BatteryManager.BATTERY_STATUS_NOT_CHARGING
+    private fun getLastDischargingRecords(): List<BatteryStatsItem> {
+        if (records.isNotEmpty()) {
+            var endPos = 0
+            for (i in records.lastIndex downTo 0) {
+                if (records[i].batteryStatus == BatteryManager.BATTERY_STATUS_DISCHARGING ||
+                    records[i].batteryStatus == BatteryManager.BATTERY_STATUS_NOT_CHARGING
                 ) {
-                    if (pkgName != "standby") {
-                        screenOnEnergyCost += batteryPower * duration
-                        screenOnDuration += duration
-                        screenOnCapacityCost += batteryCapacityDiff
-
-                        if (appsDurationMap.containsKey(pkgName)) {
-                            appsDurationMap[pkgName] = appsDurationMap[pkgName]!! + duration
-                        } else {
-                            appsDurationMap[pkgName] = duration.toLong()
-                        }
-                        if (appsPowerListMap.containsKey(pkgName)) {
-                            appsPowerListMap[pkgName]!!.add(batteryPower)
-                        } else {
-                            appsPowerListMap[pkgName] = mutableListOf(batteryPower)
-                        }
-                        if (appsTemperatureListMap.containsKey(pkgName)) {
-                            appsTemperatureListMap[pkgName]!!.add(batteryTemperature)
-                        } else {
-                            appsTemperatureListMap[pkgName] = mutableListOf(batteryTemperature)
-                        }
-                    } else {
-                        screenOffEnergyCost += batteryPower * duration
-                        screenOffDuration += duration
-                        screenOffCapacityCost += batteryCapacityDiff
-                    }
-                } else if (batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING && batteryCapacity < 100) {
-                    chargingCapacityList.add(batteryCapacity)
-                    chargingTemperatureList.add(batteryTemperature)
-                    chargingPowerList.add(batteryPower)
-                    chargingEnergyIncrease += batteryPower * duration
-                    chargingDuration += duration
-                }
-
-                val batteryCapacityArrayIdx =
-                    (timeStamp - recordStartTime) * (batteryCapacityArray.size - 1) / recordDuration
-                if (batteryCapacityArrayIdx in 1..batteryCapacityArray.lastIndex) {
-                    batteryCapacityArray[batteryCapacityArrayIdx.toInt()] = batteryCapacity
+                    endPos = i
+                    break
                 }
             }
 
-            var lastBatteryCapacity = batteryCapacityArray[0]
-            for (idx in 1 until batteryCapacityArray.size) {
-                if (batteryCapacityArray[idx] == -1) {
-                    batteryCapacityArray[idx] = lastBatteryCapacity
-                } else {
-                    lastBatteryCapacity = batteryCapacityArray[idx]
+            var beginPos = endPos
+            for (i in endPos downTo 0) {
+                if (records[i].batteryStatus != BatteryManager.BATTERY_STATUS_DISCHARGING &&
+                    records[i].batteryStatus != BatteryManager.BATTERY_STATUS_NOT_CHARGING
+                ) {
+                    beginPos = i
+                    break
                 }
+            }
+            if (beginPos == endPos) {
+                beginPos = 0
             }
 
-            if (screenOnDuration > 0) {
-                screenOnAveragePower = (screenOnEnergyCost / screenOnDuration).toInt()
-            }
-            if (screenOffDuration > 0) {
-                screenOffAveragePower = (screenOffEnergyCost / screenOffDuration).toInt()
-            }
-
-            if (screenOnCapacityCost >= 10) {
-                val batteryCurCapacity = BatteryStatsProvider.getBatteryCapacity(context)
-                remainingUsageTime = screenOnDuration / screenOnCapacityCost * batteryCurCapacity
-            } else if (screenOnAveragePower > 0) {
-                val batteryCurCapacity = BatteryStatsProvider.getBatteryCapacity(context)
-                val batteryDesignCapacity = BatteryStatsProvider.getBatteryDesignCapacity(context)
-                val batteryRemainingEnergy =
-                    batteryDesignCapacity.toLong() * 3880 * 3600 / 1000 * batteryCurCapacity / 100
-                remainingUsageTime = batteryRemainingEnergy / screenOnAveragePower
-            }
-
-            if (chargingCapacityList.size > 0) {
-                chargingCapacity = chargingCapacityList.max() - chargingCapacityList.min()
-            }
-            if (chargingPowerList.size > 0) {
-                chargingMaxPower = chargingPowerList.max()
-            }
-            if (chargingDuration > 0) {
-                chargingAveragePower = (chargingEnergyIncrease / chargingDuration).toInt()
-            }
-            if (chargingTemperatureList.size > 0) {
-                chargingMaxTemperarure = chargingTemperatureList.max()
-                var chargingTemperatureSum: Long = 0
-                chargingTemperatureList.forEach {
-                    chargingTemperatureSum += it
-                }
-                chargingAverageTemperature =
-                    (chargingTemperatureSum / chargingTemperatureList.size).toInt()
-            }
-
-            if (chargingCapacityList.size <= 100) {
-                chargingCapacityArray = chargingCapacityList.toIntArray()
-            } else {
-                chargingCapacityArray = IntArray(100)
-                val step = chargingCapacityList.size.toDouble() / 100
-                for (idx in 0 until chargingCapacityArray.size) {
-                    val listIdx = (idx * step).toInt()
-                    if (listIdx < chargingCapacityList.size) {
-                        chargingCapacityArray[idx] = chargingCapacityList[listIdx]
-                    }
-                }
-            }
-            if (chargingPowerList.size <= 500) {
-                chargingPowerArray = chargingPowerList.toIntArray()
-            } else {
-                chargingPowerArray = IntArray(500)
-                val step = chargingPowerList.size.toDouble() / 500
-                for (idx in 0 until chargingPowerArray.size) {
-                    val listIdx = (idx * step).toInt()
-                    if (listIdx < chargingPowerList.size) {
-                        chargingPowerArray[idx] = chargingPowerList[listIdx]
-                    }
-                }
-            }
-            if (chargingTemperatureList.size <= 500) {
-                chargingTemperatureArray = chargingTemperatureList.toIntArray()
-            } else {
-                chargingTemperatureArray = IntArray(500)
-                val step = chargingTemperatureList.size.toDouble() / 500
-                for (idx in 0 until chargingTemperatureArray.size) {
-                    val listIdx = (idx * step).toInt()
-                    if (listIdx < chargingTemperatureList.size) {
-                        chargingTemperatureArray[idx] = chargingTemperatureList[listIdx]
-                    }
-                }
-            }
-
-            if (chargingCapacity > 10) {
-                estimatingBatteryCapacity =
-                    (chargingEnergyIncrease / chargingCapacity * 100 / 3600 / 3.88f).toInt()
-            }
-
-            for ((pkgName, list) in appsPowerListMap.entries) {
-                if (list.size > 0) {
-                    appsMaxPowerMap[pkgName] = list.max()
-                    var sum: Long = 0
-                    list.forEach {
-                        sum += it
-                    }
-                    appsAveragePowerMap[pkgName] = (sum / list.size).toInt()
-                }
-            }
-            for ((pkgName, list) in appsTemperatureListMap.entries) {
-                if (list.size > 0) {
-                    appsMaxTemperatureMap[pkgName] = list.max()
-                    var sum: Long = 0
-                    list.forEach {
-                        sum += it
-                    }
-                    appsAverageTemperatureMap[pkgName] = (sum / list.size).toInt()
-                }
-            }
+            return records.subList(beginPos, endPos)
         }
+        return listOf()
     }
 
-    fun getRecordDuration(): Long {
-        var duration: Long
-        runBlocking {
-            mutex.withLock {
-                duration = recordDuration
+    fun getUsagePercentageList(): List<Int> {
+        if (dischargingRecords.isNotEmpty()) {
+            val percentageList: MutableList<Int> = mutableListOf()
+            for (item in dischargingRecords) {
+                percentageList.add(item.batteryPercentage)
             }
+            return percentageList
         }
-        return duration
-    }
-
-    fun getlastChargingCapacity(): Int {
-        var capacity: Int
-        runBlocking {
-            mutex.withLock {
-                capacity = lastChargingCapacity
-            }
-        }
-        return capacity
+        return listOf()
     }
 
     fun getScreenOnDuration(): Long {
-        var duration: Long
-        runBlocking {
-            mutex.withLock {
-                duration = screenOnDuration
+        if (dischargingRecords.isNotEmpty()) {
+            var duration = 0L
+            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
+                if (!dischargingRecords[i].packageName.equals("standby")) {
+                    duration += dischargingRecords[i + 1].timestamp - dischargingRecords[i].timestamp
+                }
             }
+            return duration
         }
-        return duration
-    }
-
-    fun getScreenOffDuration(): Long {
-        var duration: Long
-        runBlocking {
-            mutex.withLock {
-                duration = screenOffDuration
-            }
-        }
-        return duration
+        return 0L
     }
 
     fun getScreenOnAveragePower(): Int {
-        var power: Int
-        runBlocking {
-            mutex.withLock {
-                power = screenOnAveragePower
+        if (dischargingRecords.isNotEmpty()) {
+            var averagePower = 0.0
+            var recordNum = 0
+            for (i in dischargingRecords.lastIndex downTo 0) {
+                if (!dischargingRecords[i].packageName.equals("standby") &&
+                    dischargingRecords[i].batteryPower < 0
+                ) {
+                    averagePower =
+                        (averagePower * recordNum + (-dischargingRecords[i].batteryPower)) / (recordNum + 1)
+                    recordNum++
+                }
             }
+            return averagePower.toInt()
         }
-        return power
+        return 0
+    }
+
+    fun getScreenOnUsedPercentage(): Int {
+        if (dischargingRecords.isNotEmpty()) {
+            var percentage = 0
+            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
+                if (!dischargingRecords[i].packageName.equals("standby")) {
+                    percentage +=
+                        dischargingRecords[i].batteryPercentage - dischargingRecords[i + 1].batteryPercentage
+                }
+            }
+            return percentage
+        }
+        return 0
+    }
+
+    fun getScreenOffDuration(): Long {
+        if (dischargingRecords.isNotEmpty()) {
+            var duration = 0L
+            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
+                if (dischargingRecords[i].packageName.equals("standby")) {
+                    duration += dischargingRecords[i + 1].timestamp - dischargingRecords[i].timestamp
+                }
+            }
+            return duration
+        }
+        return 0L
     }
 
     fun getScreenOffAveragePower(): Int {
-        var power: Int
-        runBlocking {
-            mutex.withLock {
-                power = screenOffAveragePower
+        if (dischargingRecords.isNotEmpty()) {
+            var averagePower = 0.0
+            var recordNum = 0
+            for (i in dischargingRecords.lastIndex downTo 0) {
+                if (dischargingRecords[i].packageName.equals("standby") &&
+                    dischargingRecords[i].batteryPower < 0
+                ) {
+                    averagePower =
+                        (averagePower * recordNum + (-dischargingRecords[i].batteryPower)) / (recordNum + 1)
+                    recordNum++
+                }
             }
+            return averagePower.toInt()
         }
-        return power
+        return 0
     }
 
-    fun getScreenOnCapacityCost(): Int {
-        var capacity: Int
-        runBlocking {
-            mutex.withLock {
-                capacity = screenOnCapacityCost
+    fun getScreenOffUsedPercentage(): Int {
+        if (dischargingRecords.isNotEmpty()) {
+            var percentage = 0
+            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
+                if (dischargingRecords[i].packageName.equals("standby")) {
+                    percentage +=
+                        dischargingRecords[i].batteryPercentage - dischargingRecords[i + 1].batteryPercentage
+                }
             }
+            return percentage
         }
-        return capacity
+        return 0
     }
 
-    fun getScreenOffCapacityCost(): Int {
-        var capacity: Int
-        runBlocking {
-            mutex.withLock {
-                capacity = screenOffCapacityCost
+    fun getPerappPowerList(): Map<String, List<Int>> {
+        if (dischargingRecords.isNotEmpty()) {
+            val perappPowerList: MutableMap<String, MutableList<Int>> = mutableMapOf()
+            for (item in dischargingRecords) {
+                if (!perappPowerList.containsKey(item.packageName)) {
+                    perappPowerList[item.packageName] = mutableListOf()
+                }
+                if (item.batteryPower < 0) {
+                    perappPowerList[item.packageName]!!.add(-item.batteryPower)
+                }
             }
+            return perappPowerList
         }
-        return capacity
+        return mapOf()
+    }
+
+    fun getPerappTemperatureList(): Map<String, List<Int>> {
+        if (dischargingRecords.isNotEmpty()) {
+            val perappTemperatureList: MutableMap<String, MutableList<Int>> = mutableMapOf()
+            for (item in dischargingRecords) {
+                if (!perappTemperatureList.containsKey(item.packageName)) {
+                    perappTemperatureList[item.packageName] = mutableListOf()
+                }
+                perappTemperatureList[item.packageName]!!.add(item.batteryTemperature)
+            }
+            return perappTemperatureList
+        }
+        return mapOf()
+    }
+
+    fun getPerappUsedPercentage(): Map<String, Int> {
+        if (dischargingRecords.isNotEmpty()) {
+            val perappUsedPercentage: MutableMap<String, Int> = mutableMapOf()
+            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
+                if ((dischargingRecords[i].batteryPercentage - dischargingRecords[i + 1].batteryPercentage) > 0) {
+                    if (!perappUsedPercentage.containsKey(dischargingRecords[i].packageName)) {
+                        perappUsedPercentage[dischargingRecords[i].packageName] = 0
+                    }
+                    perappUsedPercentage[dischargingRecords[i].packageName] =
+                        perappUsedPercentage[dischargingRecords[i].packageName]!! + 1
+                }
+            }
+            return perappUsedPercentage
+        }
+        return mapOf()
+    }
+
+    fun getPerappUsedTime(): Map<String, Long> {
+        if (dischargingRecords.isNotEmpty()) {
+            val perappUsedTime: MutableMap<String, Long> = mutableMapOf()
+            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
+                val duration = dischargingRecords[i + 1].timestamp - dischargingRecords[i].timestamp
+                if (duration > 0) {
+                    if (!perappUsedTime.containsKey(dischargingRecords[i].packageName)) {
+                        perappUsedTime[dischargingRecords[i].packageName] = 0L
+                    }
+                    perappUsedTime[dischargingRecords[i].packageName] =
+                        perappUsedTime[dischargingRecords[i].packageName]!! + duration
+                }
+            }
+            return perappUsedTime
+        }
+        return mapOf()
     }
 
     fun getRemainingUsageTime(): Long {
-        var time: Long
-        runBlocking {
-            mutex.withLock {
-                time = remainingUsageTime
+        val remainingPercentage = records.lastOrNull()?.batteryPercentage
+        if (remainingPercentage != null && remainingPercentage > 0) {
+            val screenOnDuration = getScreenOnDuration()
+            val screenOnAveragePower = getScreenOnAveragePower()
+            val screenOnUsedPercentage = getScreenOnUsedPercentage()
+            if (screenOnDuration > 0 && screenOnAveragePower > 0 && screenOnUsedPercentage > 0) {
+                val predictBatteryCapacity =
+                    (screenOnAveragePower.toDouble() * screenOnDuration / 3600.0) /
+                            ((screenOnUsedPercentage.toDouble() + 1.0) / 100.0)
+                val remainingBatteryCapacity = predictBatteryCapacity * remainingPercentage / 100.0
+                return (remainingBatteryCapacity / screenOnAveragePower * 3600.0).toLong()
             }
         }
-        return time
+        return 0L
     }
 
-    fun getBatteryCapacityArray(): IntArray {
-        var array: IntArray
-        runBlocking {
-            mutex.withLock {
-                array = batteryCapacityArray
-            }
+    fun getLastChargingDuration(): Long {
+        if (chargingRecords.isNotEmpty()) {
+            return (chargingRecords.last().timestamp - chargingRecords.first().timestamp)
         }
-        return array
+        return 0L
     }
 
-    fun getChargingDuration(): Long {
-        var duration: Long
-        runBlocking {
-            mutex.withLock {
-                duration = chargingDuration
+    fun getLastChargingPowerList(): List<Int> {
+        if (chargingRecords.isNotEmpty()) {
+            val chargingPowerList: MutableList<Int> = mutableListOf()
+            for (item in chargingRecords) {
+                if (item.batteryPower > 0) {
+                    chargingPowerList.add(item.batteryPower)
+                } else {
+                    chargingPowerList.add(0)
+                }
             }
+            return chargingPowerList
         }
-        return duration
+        return listOf()
     }
 
-    fun getChargingCapacity(): Int {
-        var capacity: Int
-        runBlocking {
-            mutex.withLock {
-                capacity = chargingCapacity
+    fun getLastChargingTemperatureList(): List<Int> {
+        if (chargingRecords.isNotEmpty()) {
+            val chargingTemperatureList: MutableList<Int> = mutableListOf()
+            for (item in chargingRecords) {
+                chargingTemperatureList.add(item.batteryTemperature)
             }
+            return chargingTemperatureList
         }
-        return capacity
+        return listOf()
     }
 
-    fun getChargingMaxPower(): Int {
-        var power: Int
-        runBlocking {
-            mutex.withLock {
-                power = chargingMaxPower
+    fun getLastChargingPercentageList(): List<Int> {
+        if (chargingRecords.isNotEmpty()) {
+            val chargingPercentageList: MutableList<Int> = mutableListOf()
+            for (item in chargingRecords) {
+                chargingPercentageList.add(item.batteryPercentage)
             }
+            return chargingPercentageList
         }
-        return power
+        return listOf()
     }
 
-    fun getChargingAveragePower(): Int {
-        var power: Int
-        runBlocking {
-            mutex.withLock {
-                power = chargingAveragePower
+    fun getBatteryHealthReport(): BatteryHealthReport {
+        if (records.isNotEmpty()) {
+            val samples: MutableList<List<BatteryStatsItem>> = mutableListOf()
+            var pos = 0
+            while (pos < records.lastIndex) {
+                if (records[pos].batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING) {
+                    val sample: MutableList<BatteryStatsItem> = mutableListOf()
+                    for (i in pos until records.size) {
+                        if (records[i].batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING) {
+                            sample.add(records[i])
+                        } else {
+                            break
+                        }
+                    }
+                    samples.add(sample)
+                    pos += sample.size
+                } else {
+                    pos++
+                }
             }
-        }
-        return power
-    }
 
-    fun getChargingMaxTemperature(): Int {
-        var temperature: Int
-        runBlocking {
-            mutex.withLock {
-                temperature = chargingMaxTemperarure
-            }
-        }
-        return temperature
-    }
+            val report = BatteryHealthReport()
+            for (sample in samples) {
+                val chargedPercentage =
+                    sample.last().batteryPercentage - sample.first().batteryPercentage
+                if (sample.size > 100 && chargedPercentage > 50) {
+                    report.totalChargedPercentage += chargedPercentage
+                    report.sampleSize++
 
-    fun getChargingAverageTemperature(): Int {
-        var temperature: Int
-        runBlocking {
-            mutex.withLock {
-                temperature = chargingAverageTemperature
+                    var chargedCapacity = 0.0
+                    for (i in 0 until sample.lastIndex) {
+                        val duration = sample[i + 1].timestamp - sample[i].timestamp
+                        val power =
+                            (sample[i].batteryPower + sample[i + 1].batteryPower).toDouble() / 2.0
+                        chargedCapacity += power * duration / 3600.0
+                    }
+                    report.totalChargedCapacity += chargedCapacity.toInt()
+                }
             }
-        }
-        return temperature
-    }
-
-    fun getChargingCapacityArray(): IntArray {
-        var array: IntArray
-        runBlocking {
-            mutex.withLock {
-                array = chargingCapacityArray
+            if (report.totalChargedPercentage > 0 && report.totalChargedCapacity > 0) {
+                report.estimatingCapacity =
+                    (report.totalChargedCapacity.toDouble() * 100.0 / report.totalChargedPercentage).toInt()
             }
+            return report
         }
-        return array
-    }
-
-    fun getChargingPowerArray(): IntArray {
-        var array: IntArray
-        runBlocking {
-            mutex.withLock {
-                array = chargingPowerArray
-            }
-        }
-        return array
-    }
-
-    fun getChargingTemperatureArray(): IntArray {
-        var array: IntArray
-        runBlocking {
-            mutex.withLock {
-                array = chargingTemperatureArray
-            }
-        }
-        return array
-    }
-
-    fun getEstimatingBatteryCapacity(): Int {
-        var batteryCapacity: Int
-        runBlocking {
-            mutex.withLock {
-                batteryCapacity = estimatingBatteryCapacity
-            }
-        }
-        return batteryCapacity
-    }
-
-    fun getAppsDurationMap(): HashMap<String, Long> {
-        var map: HashMap<String, Long>
-        runBlocking {
-            mutex.withLock {
-                map = appsDurationMap
-            }
-        }
-        return map
-    }
-
-    fun getAppsMaxPowerMap(): HashMap<String, Int> {
-        var map: HashMap<String, Int>
-        runBlocking {
-            mutex.withLock {
-                map = appsMaxPowerMap
-            }
-        }
-        return map
-    }
-
-    fun getAppsAveragePowerMap(): HashMap<String, Int> {
-        var map: HashMap<String, Int>
-        runBlocking {
-            mutex.withLock {
-                map = appsAveragePowerMap
-            }
-        }
-        return map
-    }
-
-    fun getAppsMaxTemperatureMap(): HashMap<String, Int> {
-        var map: HashMap<String, Int>
-        runBlocking {
-            mutex.withLock {
-                map = appsMaxTemperatureMap
-            }
-        }
-        return map
-    }
-
-    fun getAppsAverageTemperatureMap(): HashMap<String, Int> {
-        var map: HashMap<String, Int>
-        runBlocking {
-            mutex.withLock {
-                map = appsAverageTemperatureMap
-            }
-        }
-        return map
+        return BatteryHealthReport()
     }
 }

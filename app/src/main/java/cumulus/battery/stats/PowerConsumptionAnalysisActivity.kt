@@ -2,15 +2,19 @@ package cumulus.battery.stats
 
 import android.content.pm.PackageManager
 import android.content.res.Resources
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,38 +31,46 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.drawable.toDrawable
+import cumulus.battery.stats.charts.MultiLineChart
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusBlue
+import cumulus.battery.stats.ui.theme.cumulusPink
 import cumulus.battery.stats.ui.theme.cumulusPurple
 import cumulus.battery.stats.utils.BattStatsRecordAnalysis
+import cumulus.battery.stats.utils.DurationToText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class PowerConsumptionAnalysisActivity : ComponentActivity() {
-    private var screenOnCapacityCost: Int by mutableStateOf(0)
-    private var screenOffCapacityCost: Int by mutableStateOf(0)
-    private var screenOnAveragePower: Int by mutableStateOf(0)
-    private var screenOffAveragePower: Int by mutableStateOf(0)
-    private var screenOnDuration: Long by mutableStateOf(0)
-    private var screenOffDuration: Long by mutableStateOf(0)
-    private var appsDurationStateMap = mutableStateMapOf<String, Long>()
-    private var appsMaxPowerStateMap = mutableStateMapOf<String, Int>()
-    private var appsAveragePowerStateMap = mutableStateMapOf<String, Int>()
-    private var appsMaxTemperatureStateMap = mutableStateMapOf<String, Int>()
-    private var appsAverageTemperatureStateMap = mutableStateMapOf<String, Int>()
+    private var screenOnUsedPercentage: Int by mutableIntStateOf(0)
+    private var screenOffUsedPercentage: Int by mutableIntStateOf(0)
+    private var screenOnAveragePower: Int by mutableIntStateOf(0)
+    private var screenOffAveragePower: Int by mutableIntStateOf(0)
+    private var screenOnDuration: Long by mutableLongStateOf(0)
+    private var screenOffDuration: Long by mutableLongStateOf(0)
+    private var perappPowerList: Map<String, List<Int>> by mutableStateOf(mapOf())
+    private var perappTemperatureList: Map<String, List<Int>> by mutableStateOf(mapOf())
+    private var perappUsedPercentage: Map<String, Int> by mutableStateOf(mapOf())
+    private var perappUsedTime: Map<String, Long> by mutableStateOf(mapOf())
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -108,7 +120,11 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(top = it.calculateTopPadding() + 10.dp, start = 20.dp, end = 20.dp)
+                                .padding(
+                                    top = it.calculateTopPadding() + 10.dp,
+                                    start = 20.dp,
+                                    end = 20.dp
+                                )
                                 .fillMaxSize()
                                 .padding(top = 10.dp),
                             verticalArrangement = Arrangement.Top,
@@ -142,7 +158,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        UpdateRecordAnalysis()
+        updateRecordAnalysis()
     }
 
     @Composable
@@ -179,11 +195,12 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
-                        text = "${screenOnCapacityCost}%",
-                        fontSize = 16.sp,
+                        text = "${screenOnUsedPercentage}%",
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Column(
@@ -200,11 +217,12 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
                         text = "${screenOnAveragePower}mW",
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Column(
@@ -214,20 +232,6 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    var screenOnDurationText: String
-                    if (screenOnDuration > 60) {
-                        screenOnDurationText = ""
-                        val hour = screenOnDuration / 3600
-                        val minute = (screenOnDuration / 60) % 60
-                        if (hour > 0) {
-                            screenOnDurationText += "${hour}时"
-                        }
-                        if (minute > 0) {
-                            screenOnDurationText += "${minute}分"
-                        }
-                    } else {
-                        screenOnDurationText = "小于1分"
-                    }
                     Text(
                         text = "亮屏时长",
                         fontSize = 12.sp,
@@ -235,11 +239,12 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
-                        text = screenOnDurationText,
-                        fontSize = 16.sp,
+                        text = DurationToText(screenOnDuration),
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -264,11 +269,12 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
-                        text = "${screenOffCapacityCost}%",
-                        fontSize = 16.sp,
+                        text = "${screenOffUsedPercentage}%",
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Column(
@@ -285,11 +291,12 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
                         text = "${screenOffAveragePower}mW",
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Column(
@@ -299,20 +306,6 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    var screenOffDurationText: String
-                    if (screenOffDuration > 60) {
-                        screenOffDurationText = ""
-                        val hour = screenOffDuration / 3600
-                        val minute = (screenOffDuration / 60) % 60
-                        if (hour > 0) {
-                            screenOffDurationText += "${hour}时"
-                        }
-                        if (minute > 0) {
-                            screenOffDurationText += "${minute}分"
-                        }
-                    } else {
-                        screenOffDurationText = "小于1分"
-                    }
                     Text(
                         text = "熄屏时长",
                         fontSize = 12.sp,
@@ -320,11 +313,12 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
-                        text = screenOffDurationText,
-                        fontSize = 16.sp,
+                        text = DurationToText(screenOffDuration),
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -341,120 +335,299 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            for ((pkgName, duration) in appsDurationStateMap.entries) {
-                var appName = "unknown"
-                var appIcon = AppCompatResources.getDrawable(applicationContext, R.drawable.icon_app_unknown)!!
-                try {
-                    val appInfo = packageManager.getApplicationInfo(pkgName, PackageManager.GET_META_DATA)
-                    appName = packageManager.getApplicationLabel(appInfo).toString()
-                    appIcon = packageManager.getApplicationIcon(appInfo)
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            for ((pkgName, usedTime) in perappUsedTime) {
+                if (!pkgName.equals("standby") && !pkgName.equals("other") && usedTime > 0) {
+                    AppDetailsBar(pkgName)
                 }
-                var durationText: String
-                if (duration >= 60) {
-                    durationText = ""
-                    val hour = duration / 3600
-                    val minute = (duration / 60) % 60
-                    if (hour > 0) {
-                        durationText += "${hour}时"
-                    }
-                    if (minute > 0) {
-                        durationText += "${minute}分"
-                    }
-                } else {
-                    durationText = "小于1分钟"
-                }
-                val maxPower = appsMaxPowerStateMap[pkgName]!!
-                val averagePower = appsAveragePowerStateMap[pkgName]!!
-                val maxTemperature = appsMaxTemperatureStateMap[pkgName]!!
-                val averageTemperature = appsAverageTemperatureStateMap[pkgName]!!
+            }
+        }
+    }
+
+    @Composable
+    private fun AppDetailsBar(pkgName: String) {
+        Column(
+            modifier = Modifier
+                .padding(top = 10.dp)
+                .fillMaxWidth()
+                .background(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(10.dp)
+                ),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            var showMoreDetails by remember { mutableStateOf(false) }
+            TextButton(
+                onClick = { showMoreDetails = !showMoreDetails },
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier
+                    .height(60.dp)
+                    .fillMaxWidth()
+            ) {
                 Row(
                     modifier = Modifier
-                        .padding(top = 5.dp)
-                        .fillMaxWidth()
-                        .height(80.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(10.dp)
-                        ),
+                        .padding(start = 20.dp)
+                        .fillMaxSize(),
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    var appIcon = getAppIcon(pkgName)
+                    if (appIcon == null) {
+                        appIcon = getUnknownAppIcon()
+                    }
                     Image(
                         bitmap = appIcon.toBitmap().asImageBitmap(),
                         contentDescription = null,
                         modifier = Modifier
-                            .padding(start = 20.dp)
                             .height(40.dp)
                             .width(40.dp)
                     )
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(start = 20.dp),
+                            .padding(start = 20.dp)
+                            .fillMaxHeight()
+                            .width(200.dp),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.Start
                     ) {
                         Text(
-                            text = "${appName} | 已使用 ${durationText}",
+                            text = getAppName(pkgName),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(20.dp),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            var usedTime = perappUsedTime[pkgName]
+                            if (usedTime == null) {
+                                usedTime = 0
+                            }
+                            Text(
+                                text = "屏幕使用时间: ",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = DurationToText(usedTime),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = cumulusBlue,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .padding(end = 20.dp)
+                            .fillMaxSize(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        var usedPercentageText = "<1%"
+                        val usedPercentage = perappUsedPercentage[pkgName]
+                        if (usedPercentage != null && usedPercentage > 0) {
+                            usedPercentageText = "${usedPercentage}%"
+                        }
                         Text(
-                            modifier = Modifier.padding(top = 2.dp),
-                            text = "功耗: 最高 ${maxPower}mW, 平均 ${averagePower} mW",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
+                            text = usedPercentageText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = cumulusBlue,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            modifier = Modifier.padding(top = 2.dp),
-                            text = "温度: 最高 ${maxTemperature} °C, 平均 ${averageTemperature} °C",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
+                    }
+                }
+            }
+            AnimatedVisibility(visible = showMoreDetails) {
+                val appPowerList = perappPowerList[pkgName]
+                val appTemperatureList = perappTemperatureList[pkgName]
+                if (!appPowerList.isNullOrEmpty() && !appTemperatureList.isNullOrEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .padding(start = 20.dp, top = 10.dp, end = 20.dp)
+                            .fillMaxWidth()
+                            .height(190.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val maxPower = appPowerList.max()
+                        val averagePower = appPowerList.average().toInt()
+                        val maxTemperature = appTemperatureList.max()
+                        val averageTemperarure = appTemperatureList.average().toInt()
+                        MultiLineChart(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            line0DataArray = appPowerList.map { it / 1000 }.toTypedArray().toIntArray(),
+                            line1DataArray = appTemperatureList.toIntArray(),
+                            tick0Max = (maxPower / 1000 / 10 + 1) * 10,
+                            tick1Max = (maxTemperature / 10 + 1) * 10,
+                            line0Color = cumulusBlue,
+                            line1Color = cumulusPink,
+                            line0Title = "功率(W)",
+                            line1Title = "温度(°C)"
                         )
+                        Row(
+                            modifier = Modifier
+                                .padding(top = 10.dp)
+                                .fillMaxWidth()
+                                .height(20.dp),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "最高功耗: ",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = maxPower.toString(),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = cumulusBlue,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "mW, 平均功耗: ",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = averagePower.toString(),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = cumulusBlue,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "mW",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Row(
+                            modifier = Modifier
+                                .padding(top = 5.dp)
+                                .fillMaxWidth()
+                                .height(20.dp),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "最高温度: ",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = maxTemperature.toString(),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = cumulusBlue,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "°C, 平均温度: ",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = averageTemperarure.toString(),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = cumulusBlue,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "°C",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    private fun UpdateRecordAnalysis() {
-        CoroutineScope(Dispatchers.Main).launch {
-            val recordAnalysis = BattStatsRecordAnalysis(applicationContext, BatteryStatsRecorder.getCurRecord())
-            recordAnalysis.doAnalysis()
-            screenOnCapacityCost = recordAnalysis.getScreenOnCapacityCost()
-            screenOffCapacityCost = recordAnalysis.getScreenOffCapacityCost()
+    private fun updateRecordAnalysis() {
+        CoroutineScope(Dispatchers.Default).launch {
+            val records = BatteryStatsRecorder.getRecords()
+            val recordAnalysis = BattStatsRecordAnalysis(records)
+            screenOnUsedPercentage = recordAnalysis.getScreenOnUsedPercentage()
+            screenOffUsedPercentage = recordAnalysis.getScreenOffUsedPercentage()
             screenOnAveragePower = recordAnalysis.getScreenOnAveragePower()
             screenOffAveragePower = recordAnalysis.getScreenOffAveragePower()
             screenOnDuration = recordAnalysis.getScreenOnDuration()
             screenOffDuration = recordAnalysis.getScreenOffDuration()
-            val appsDurationMap = recordAnalysis.getAppsDurationMap()
-            for ((pkgName, duration) in appsDurationMap.entries) {
-                appsDurationStateMap[pkgName] = duration
-            }
-            val appsMaxPowerMap = recordAnalysis.getAppsMaxPowerMap()
-            for ((pkgName, maxPower) in appsMaxPowerMap.entries) {
-                appsMaxPowerStateMap[pkgName] = maxPower
-            }
-            val appsAveragePowerMap = recordAnalysis.getAppsAveragePowerMap()
-            for ((pkgName, averagePower) in appsAveragePowerMap.entries) {
-                appsAveragePowerStateMap[pkgName] = averagePower
-            }
-            val appsMaxTemperatureMap = recordAnalysis.getAppsMaxTemperatureMap()
-            for ((pkgName, maxTemperature) in appsMaxTemperatureMap.entries) {
-                appsMaxTemperatureStateMap[pkgName] = maxTemperature
-            }
-            val appsAverageTemperatureMap = recordAnalysis.getAppsAverageTemperatureMap()
-            for ((pkgName, averageTemperature) in appsAverageTemperatureMap.entries) {
-                appsAverageTemperatureStateMap[pkgName] = averageTemperature
-            }
+            perappPowerList = recordAnalysis.getPerappPowerList()
+            perappTemperatureList = recordAnalysis.getPerappTemperatureList()
+            perappUsedPercentage = recordAnalysis.getPerappUsedPercentage()
+            perappUsedTime = recordAnalysis.getPerappUsedTime()
         }
+    }
+
+    private fun getAppName(pkgName: String): String {
+        try {
+            val appInfo =
+                packageManager.getApplicationInfo(pkgName, PackageManager.GET_META_DATA)
+            return packageManager.getApplicationLabel(appInfo).toString()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return "unknown"
+    }
+
+    private fun getAppIcon(pkgName: String): Drawable? {
+        try {
+            val appInfo =
+                packageManager.getApplicationInfo(pkgName, PackageManager.GET_META_DATA)
+            return packageManager.getApplicationIcon(appInfo)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    private fun getUnknownAppIcon(): Drawable {
+        val icon = AppCompatResources.getDrawable(applicationContext, R.drawable.icon_app_unknown)
+        if (icon != null) {
+            return icon
+        }
+        return Color.White.toArgb().toDrawable()
     }
 }

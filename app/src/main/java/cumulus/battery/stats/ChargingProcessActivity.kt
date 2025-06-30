@@ -1,7 +1,7 @@
 package cumulus.battery.stats
 
+import android.annotation.SuppressLint
 import android.content.res.Resources
-import android.os.BatteryManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -26,15 +26,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.alibaba.fastjson2.JSONArray
 import cumulus.battery.stats.charts.MultiLineChart
 import cumulus.battery.stats.charts.SingleLineChart
 import cumulus.battery.stats.objects.BatteryStatsProvider
@@ -44,21 +46,23 @@ import cumulus.battery.stats.ui.theme.cumulusBlue
 import cumulus.battery.stats.ui.theme.cumulusPink
 import cumulus.battery.stats.ui.theme.cumulusPurple
 import cumulus.battery.stats.utils.BattStatsRecordAnalysis
+import cumulus.battery.stats.utils.BatteryHealthReport
+import cumulus.battery.stats.utils.DurationToText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class ChargingProcessActivity : ComponentActivity() {
-    private var chargingDuration: Long by mutableStateOf(0)
-    private var chargingCapacity: Int by mutableStateOf(0)
-    private var chargingMaxPower: Int by mutableStateOf(0)
-    private var chargingAveragePower: Int by mutableStateOf(0)
-    private var chargingMaxTemperature: Int by mutableStateOf(0)
-    private var chargingAverageTemperature: Int by mutableStateOf(0)
-    private var chargingCapacityArray: IntArray by mutableStateOf(IntArray(0))
+    private var chargingPercentageArray: IntArray by mutableStateOf(IntArray(0))
     private var chargingPowerArray: IntArray by mutableStateOf(IntArray(0))
     private var chargingTemperatureArray: IntArray by mutableStateOf(IntArray(0))
-    private var estimatingBatteryCapacity: Int by mutableStateOf(0)
+    private var chargingDuration: Long by mutableLongStateOf(0)
+    private var chargingPercentage: Int by mutableIntStateOf(0)
+    private var chargingMaxPower: Int by mutableIntStateOf(0)
+    private var chargingAveragePower: Int by mutableIntStateOf(0)
+    private var chargingMaxTemperature: Int by mutableIntStateOf(0)
+    private var chargingAverageTemperature: Int by mutableIntStateOf(0)
+    private var batteryHealthReport: BatteryHealthReport by mutableStateOf(BatteryHealthReport())
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -108,7 +112,11 @@ class ChargingProcessActivity : ComponentActivity() {
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(top = it.calculateTopPadding() + 10.dp, start = 20.dp, end = 20.dp)
+                                .padding(
+                                    top = it.calculateTopPadding() + 10.dp,
+                                    start = 20.dp,
+                                    end = 20.dp
+                                )
                                 .fillMaxSize()
                                 .padding(top = 10.dp)
                                 .verticalScroll(rememberScrollState()),
@@ -118,7 +126,7 @@ class ChargingProcessActivity : ComponentActivity() {
                             ChargingBasicInfoBar()
                             ChargingCapacityChart()
                             ChargingPowerTemperatureChart()
-                            EstimatingBatteryCapacityBar()
+                            BatteryHealthBar()
                         }
                     }
                 }
@@ -136,9 +144,10 @@ class ChargingProcessActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        UpdateRecordAnalysis()
+        updateRecordAnalysis()
     }
 
+    @SuppressLint("DefaultLocale")
     @Composable
     private fun ChargingBasicInfoBar() {
         Column(
@@ -166,20 +175,6 @@ class ChargingProcessActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    var chargingDurationText: String
-                    if (chargingDuration > 60) {
-                        chargingDurationText = ""
-                        val hour = chargingDuration / 3600
-                        val minute = (chargingDuration / 60) % 60
-                        if (hour > 0) {
-                            chargingDurationText += "${hour}时"
-                        }
-                        if (minute > 0) {
-                            chargingDurationText += "${minute}分"
-                        }
-                    } else {
-                        chargingDurationText = "0"
-                    }
                     Text(
                         text = "充电时长",
                         fontSize = 12.sp,
@@ -187,11 +182,12 @@ class ChargingProcessActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
-                        text = chargingDurationText,
-                        fontSize = 16.sp,
+                        text = DurationToText(chargingDuration),
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Column(
@@ -208,11 +204,12 @@ class ChargingProcessActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
-                        text = "${chargingCapacity}%",
-                        fontSize = 16.sp,
+                        text = "${chargingPercentage}%",
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Column(
@@ -230,11 +227,12 @@ class ChargingProcessActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
                         text = "${powerText}W",
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -260,11 +258,12 @@ class ChargingProcessActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
                         text = "${powerText}W",
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Column(
@@ -281,11 +280,12 @@ class ChargingProcessActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
                         text = "${chargingMaxTemperature}°C",
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Column(
@@ -302,11 +302,12 @@ class ChargingProcessActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        modifier = Modifier.padding(top = 2.dp),
                         text = "${chargingAverageTemperature}°C",
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue
+                        color = cumulusBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -319,7 +320,7 @@ class ChargingProcessActivity : ComponentActivity() {
             modifier = Modifier
                 .padding(top = 10.dp)
                 .fillMaxWidth()
-                .height(170.dp)
+                .height(180.dp)
                 .background(
                     color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(10.dp)
@@ -329,7 +330,7 @@ class ChargingProcessActivity : ComponentActivity() {
         ) {
             Text(
                 modifier = Modifier.padding(start = 20.dp, top = 10.dp),
-                text = "电量变化曲线",
+                text = "电池充电曲线",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = cumulusPurple
@@ -339,7 +340,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     .padding(start = 20.dp, end = 20.dp, top = 10.dp)
                     .fillMaxWidth()
                     .height(120.dp),
-                lineDataArray = chargingCapacityArray,
+                lineDataArray = chargingPercentageArray,
                 tickMax = 100,
                 lineColor = cumulusBlue
             )
@@ -360,13 +361,13 @@ class ChargingProcessActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.Start
         ) {
-            var tick0Max = 1000
-            if (chargingPowerArray.size > 0) {
-                tick0Max = chargingPowerArray.max() / 100 * 100 + 100
+            var tick0Max = 10
+            if (chargingMaxPower > 0) {
+                tick0Max = chargingMaxPower / 1000 / 10 * 10 + 10
             }
-            var tick1Max = 100
-            if (chargingTemperatureArray.size > 0) {
-                tick1Max = chargingTemperatureArray.max() / 10 * 10 + 10
+            var tick1Max = 50
+            if (chargingMaxTemperature > 0) {
+                tick1Max = chargingMaxTemperature / 10 * 10 + 10
             }
             Text(
                 modifier = Modifier.padding(start = 20.dp, top = 10.dp),
@@ -380,81 +381,265 @@ class ChargingProcessActivity : ComponentActivity() {
                     .padding(start = 20.dp, end = 20.dp, top = 10.dp)
                     .fillMaxWidth()
                     .height(150.dp),
-                line0DataArray = chargingPowerArray,
+                line0DataArray = chargingPowerArray.map { it / 1000 }.toTypedArray().toIntArray(),
                 line1DataArray = chargingTemperatureArray,
                 tick0Max = tick0Max,
                 tick1Max = tick1Max,
                 line0Color = cumulusBlue,
                 line1Color = cumulusPink,
-                line0Title = "功率(mW)",
+                line0Title = "功率(W)",
                 line1Title = "温度(°C)"
             )
         }
     }
 
+    @SuppressLint("DefaultLocale")
     @Composable
-    private fun EstimatingBatteryCapacityBar() {
-        Row(
+    private fun BatteryHealthBar() {
+        Column(
             modifier = Modifier
-                .padding(top = 10.dp)
                 .fillMaxWidth()
-                .height(50.dp)
+                .height(200.dp)
+                .padding(top = 10.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surface
                 ),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.Start
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.usage),
-                contentDescription = null,
-                modifier = Modifier
-                    .padding(start = 20.dp)
-                    .height(24.dp)
-                    .width(24.dp)
-            )
             Text(
-                modifier = Modifier.padding(start = 5.dp),
-                text = "基于此次充电预估的电池容量:",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1
-            )
-            Text(
-                modifier = Modifier.padding(start = 5.dp),
-                text = "${estimatingBatteryCapacity} mAH",
+                modifier = Modifier.padding(start = 20.dp, top = 10.dp),
+                text = "电池健康数据",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = cumulusBlue,
-                maxLines = 1
+                color = cumulusPurple
             )
+            Row(
+                modifier = Modifier
+                    .padding(start = 20.dp, top = 10.dp)
+                    .fillMaxWidth()
+                    .height(25.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "基于最近",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = batteryHealthReport.sampleSize.toString(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusBlue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "次充电估算的电池健康信息: ",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .padding(start = 20.dp)
+                    .fillMaxWidth()
+                    .height(25.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "总共充入",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = batteryHealthReport.totalChargedCapacity.toString(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusBlue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "mWh (",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = batteryHealthReport.totalChargedPercentage.toString(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusBlue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "%) 电量",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .padding(start = 20.dp)
+                    .fillMaxWidth()
+                    .height(25.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "电池剩余容量",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = batteryHealthReport.estimatingCapacity.toString(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusBlue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "mWh (",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = (batteryHealthReport.estimatingCapacity.toDouble() / 3.85).toInt()
+                        .toString(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusBlue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "mAh)",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .padding(start = 20.dp)
+                    .fillMaxWidth()
+                    .height(25.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val designCapacity =
+                    BatteryStatsProvider.getBatteryDesignCapacity(applicationContext)
+                val healthPercentage =
+                    (batteryHealthReport.estimatingCapacity.toDouble() / 3.85) / designCapacity * 100.0
+                Text(
+                    text = "标称容量",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = designCapacity.toString(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusBlue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "mAh, 健康度",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = String.format("%.2f", healthPercentage),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusBlue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "%",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .padding(start = 20.dp, top = 10.dp)
+                    .fillMaxWidth()
+                    .height(25.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "所有mAh数据均基于3.85V的标称电压, 可能存在误差.",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 
-    private fun UpdateRecordAnalysis() {
-        CoroutineScope(Dispatchers.Main).launch {
-            val record: JSONArray?
-            if (BatteryStatsProvider.getBatteryStatus(applicationContext) == BatteryManager.BATTERY_STATUS_CHARGING) {
-                record = BatteryStatsRecorder.getCurRecord()
-            } else {
-                record = BatteryStatsRecorder.getRecord("prevRecord")
+    private fun updateRecordAnalysis() {
+        CoroutineScope(Dispatchers.Default).launch {
+            val records = BatteryStatsRecorder.getRecords()
+            val recordAnalysis = BattStatsRecordAnalysis(records)
+            chargingPercentageArray = recordAnalysis.getLastChargingPercentageList().toIntArray()
+            chargingPowerArray = recordAnalysis.getLastChargingPowerList().toIntArray()
+            chargingTemperatureArray = recordAnalysis.getLastChargingTemperatureList().toIntArray()
+            chargingDuration = recordAnalysis.getLastChargingDuration()
+            if (chargingPercentageArray.isNotEmpty()) {
+                chargingPercentage = chargingPercentageArray.max() - chargingPercentageArray.min()
             }
-            if (record != null) {
-                val recordAnalysis = BattStatsRecordAnalysis(applicationContext, record)
-                recordAnalysis.doAnalysis()
-                chargingDuration = recordAnalysis.getChargingDuration()
-                chargingCapacity = recordAnalysis.getChargingCapacity()
-                chargingMaxPower = recordAnalysis.getChargingMaxPower()
-                chargingAveragePower = recordAnalysis.getChargingAveragePower()
-                chargingMaxTemperature = recordAnalysis.getChargingMaxTemperature()
-                chargingAverageTemperature = recordAnalysis.getChargingAverageTemperature()
-                chargingCapacityArray = recordAnalysis.getChargingCapacityArray()
-                chargingPowerArray = recordAnalysis.getChargingPowerArray()
-                chargingTemperatureArray = recordAnalysis.getChargingTemperatureArray()
-                estimatingBatteryCapacity = recordAnalysis.getEstimatingBatteryCapacity()
+            if (chargingPowerArray.isNotEmpty()) {
+                chargingMaxPower = chargingPowerArray.max()
+                chargingAveragePower = chargingPowerArray.average().toInt()
             }
+            if (chargingTemperatureArray.isNotEmpty()) {
+                chargingMaxTemperature = chargingTemperatureArray.max()
+                chargingAverageTemperature = chargingTemperatureArray.average().toInt()
+            }
+            batteryHealthReport = recordAnalysis.getBatteryHealthReport()
         }
     }
 }

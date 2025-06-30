@@ -1,26 +1,51 @@
 package cumulus.battery.stats
 
+import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.content.Intent
 import android.content.res.Resources
 import android.os.BatteryManager
 import android.os.Bundle
 import android.provider.Settings
+import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cumulus.battery.stats.charts.SingleLineChart
@@ -31,24 +56,25 @@ import cumulus.battery.stats.ui.theme.cumulusBlue
 import cumulus.battery.stats.ui.theme.cumulusPurple
 import cumulus.battery.stats.ui.theme.cumulusYellow
 import cumulus.battery.stats.utils.BattStatsRecordAnalysis
+import cumulus.battery.stats.utils.DurationToText
+import cumulus.battery.stats.utils.SimplifyDataPoints
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.util.*
+import java.util.Timer
+import java.util.TimerTask
 
 class MainActivity : ComponentActivity() {
     private var refreshTimer: Timer? = null
     private var backgroundServiceCreated by mutableStateOf(false)
-    private var batteryCapacity: Int by mutableStateOf(0)
-    private var batteryCurrent: Int by mutableStateOf(0)
-    private var batteryPower: Int by mutableStateOf(0)
-    private var batteryTemperature: Int by mutableStateOf(0)
-    private var batteryStatus: Int by mutableStateOf(BatteryManager.BATTERY_STATUS_UNKNOWN)
-    private var lastChargingCapacity: Int by mutableStateOf(0)
-    private var recordDuration: Long by mutableStateOf(0)
+    private var batteryCapacity: Int by mutableIntStateOf(0)
+    private var batteryCurrent: Int by mutableIntStateOf(0)
+    private var batteryPower: Int by mutableIntStateOf(0)
+    private var batteryTemperature: Int by mutableIntStateOf(0)
+    private var batteryStatus: Int by mutableIntStateOf(BatteryManager.BATTERY_STATUS_UNKNOWN)
     private var batteryCapacityArray: IntArray by mutableStateOf(IntArray(0))
-    private var screenOnDuration: Long by mutableStateOf(0)
-    private var remainingUsageTime: Long by mutableStateOf(0)
+    private var screenOnDuration: Long by mutableLongStateOf(0)
+    private var remainingUsageTime: Long by mutableLongStateOf(0)
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,7 +119,11 @@ class MainActivity : ComponentActivity() {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(top = it.calculateTopPadding() + 20.dp, start = 20.dp, end = 20.dp)
+                                .padding(
+                                    top = it.calculateTopPadding() + 20.dp,
+                                    start = 20.dp,
+                                    end = 20.dp
+                                )
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.Top,
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -122,13 +152,36 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        StartRefleshTimer()
-        UpdateRecordAnalysis()
+        startRefreshTimer()
+        updateRecordAnalysis()
     }
 
     override fun onStop() {
+        stopRefreshTimer()
         super.onStop()
-        StopRefleshTimer()
+    }
+
+    override fun onDestroy() {
+        BatteryStatsRecorder.optimize()
+        super.onDestroy()
+    }
+
+    @SuppressLint("ServiceCast")
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+            try {
+                val activityManager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+                val tasks = activityManager.appTasks.filterNotNull()
+                tasks.forEach { task ->
+                    task.setExcludeFromRecents(true)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            finish()
+            return false
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     @Composable
@@ -224,7 +277,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxWidth(),
                         text = "电流显示调整",
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Bold,
                         color = cumulusPurple,
                         maxLines = 1
                     )
@@ -255,7 +308,7 @@ class MainActivity : ComponentActivity() {
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            var currentReverse by remember { mutableStateOf(BatteryStatsProvider.getCurrentReverse()) }
+                            var currentReverse by remember { mutableStateOf(BatteryStatsProvider.isCurrentReverse()) }
                             Switch(
                                 modifier = Modifier
                                     .height(20.dp),
@@ -295,7 +348,7 @@ class MainActivity : ComponentActivity() {
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            var currentUnitUA by remember { mutableStateOf(BatteryStatsProvider.getCurrentUnitUA()) }
+                            var currentUnitUA by remember { mutableStateOf(BatteryStatsProvider.isCurrentUnitUA()) }
                             Switch(
                                 modifier = Modifier
                                     .height(20.dp),
@@ -335,7 +388,7 @@ class MainActivity : ComponentActivity() {
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            var dualBattery by remember { mutableStateOf(BatteryStatsProvider.getDualBattery()) }
+                            var dualBattery by remember { mutableStateOf(BatteryStatsProvider.isDualBattery()) }
                             Switch(
                                 modifier = Modifier
                                     .height(20.dp),
@@ -359,7 +412,11 @@ class MainActivity : ComponentActivity() {
             val buttonColor = cumulusYellow.copy(alpha = 0.5f)
             TextButton(
                 onClick = {
-                    Toast.makeText(applicationContext, "打开Cumulus无障碍以启用后台服务", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        applicationContext,
+                        "打开Cumulus无障碍以启用后台服务",
+                        Toast.LENGTH_LONG
+                    ).show()
                     val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                     startActivity(intent)
                 },
@@ -406,91 +463,65 @@ class MainActivity : ComponentActivity() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(210.dp)
+                .height(190.dp)
                 .padding(top = 10.dp)
                 .background(
                     shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.surface
                 ),
             verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.Start
         ) {
-            var durationText: String
-            if (recordDuration > 60) {
-                durationText = "已使用"
-                val day = recordDuration / 3600 / 24
-                val hour = (recordDuration / 3600) % 24
-                val minute = (recordDuration / 60) % 60
-                if (day > 0) {
-                    durationText += "${day}天"
-                }
-                if (hour > 0) {
-                    durationText += "${hour}小时"
-                }
-                if (minute > 0) {
-                    durationText += "${minute}分钟"
-                }
-            } else {
-                durationText = "刚刚开始使用"
-            }
-            Text(
-                modifier = Modifier
-                    .padding(start = 20.dp, end = 20.dp, top = 10.dp)
-                    .height(20.dp)
-                    .fillMaxWidth(),
-                text = "上次充电至 ${lastChargingCapacity}% , ${durationText}",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = cumulusBlue,
-                maxLines = 1
-            )
             SingleLineChart(
-                lineDataArray = batteryCapacityArray,
+                lineDataArray = SimplifyDataPoints(batteryCapacityArray),
                 tickMax = 100,
                 modifier = Modifier
-                    .padding(start = 20.dp, end = 20.dp, top = 10.dp)
+                    .padding(start = 20.dp, end = 20.dp, top = 20.dp)
                     .height(120.dp)
                     .fillMaxWidth(),
                 lineColor = cumulusBlue
             )
-            var screenOnDurationText: String
-            if (screenOnDuration > 60) {
-                screenOnDurationText = "已亮屏 "
-                val hour = screenOnDuration / 3600
-                val minute = (screenOnDuration / 60) % 60
-                if (hour > 0) {
-                    screenOnDurationText += "${hour}小时"
-                }
-                if (minute > 0) {
-                    screenOnDurationText += "${minute}分钟"
-                }
-            } else {
-                screenOnDurationText = "暂未统计亮屏时间"
-            }
-            var remainingUsageTimeText: String
-            if (remainingUsageTime > 60) {
-                remainingUsageTimeText = "预计可用 "
-                val hour = remainingUsageTime / 3600
-                val minute = (remainingUsageTime / 60) % 60
-                if (hour > 0) {
-                    remainingUsageTimeText += "${hour}小时"
-                }
-                if (minute > 0) {
-                    remainingUsageTimeText += "${minute}分钟"
-                }
-            } else {
-                remainingUsageTimeText = "无法预测可用时间"
-            }
-            Text(
+            Row(
                 modifier = Modifier
-                    .padding(start = 20.dp, end = 20.dp, top = 10.dp)
-                    .fillMaxWidth(),
-                text = "${screenOnDurationText} , ${remainingUsageTimeText}",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1
-            )
+                    .padding(start = 20.dp, top = 10.dp)
+                    .fillMaxWidth()
+                    .height(20.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "屏幕使用",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = DurationToText(screenOnDuration),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusBlue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = ", 预计可用",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = DurationToText(remainingUsageTime),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusBlue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 
@@ -498,7 +529,8 @@ class MainActivity : ComponentActivity() {
     private fun PowerConsumptionAnalysisButton() {
         TextButton(
             onClick = {
-                val intent = Intent(applicationContext, PowerConsumptionAnalysisActivity::class.java)
+                val intent =
+                    Intent(applicationContext, PowerConsumptionAnalysisActivity::class.java)
                 startActivity(intent)
             },
             shape = RoundedCornerShape(10.dp),
@@ -706,41 +738,39 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun UpdateRecordAnalysis() {
-        CoroutineScope(Dispatchers.Main).launch {
-            val record = BatteryStatsRecorder.getCurRecord()
-            val recordAnalysis = BattStatsRecordAnalysis(applicationContext, record)
-            recordAnalysis.doAnalysis()
-            lastChargingCapacity = recordAnalysis.getlastChargingCapacity()
-            recordDuration = recordAnalysis.getRecordDuration()
-            batteryCapacityArray = recordAnalysis.getBatteryCapacityArray()
+    private fun updateRecordAnalysis() {
+        CoroutineScope(Dispatchers.Default).launch {
+            val records = BatteryStatsRecorder.getRecords()
+            val recordAnalysis = BattStatsRecordAnalysis(records)
+            batteryCapacityArray = recordAnalysis.getUsagePercentageList().toIntArray()
             screenOnDuration = recordAnalysis.getScreenOnDuration()
             remainingUsageTime = recordAnalysis.getRemainingUsageTime()
         }
     }
 
-    private fun UpdateBatteryStats() {
+    private fun updateBatteryStats() {
         backgroundServiceCreated = BackgroundService.isServiceCreated()
         batteryCapacity = BatteryStatsProvider.getBatteryCapacity(applicationContext)
         batteryCurrent = BatteryStatsProvider.getBatteryCurrent(applicationContext)
-        batteryPower = BatteryStatsProvider.getBatteryVoltage(applicationContext) * batteryCurrent / 1000
+        batteryPower =
+            BatteryStatsProvider.getBatteryVoltage(applicationContext) * batteryCurrent / 1000
         batteryTemperature = BatteryStatsProvider.getBatteryTemperature(applicationContext)
         batteryStatus = BatteryStatsProvider.getBatteryStatus(applicationContext)
     }
 
-    private fun StartRefleshTimer() {
+    private fun startRefreshTimer() {
         if (refreshTimer != null) {
             return
         }
         refreshTimer = Timer()
         refreshTimer!!.schedule(object : TimerTask() {
             override fun run() {
-                UpdateBatteryStats()
+                updateBatteryStats()
             }
         }, 0, 1000)
     }
 
-    private fun StopRefleshTimer() {
+    private fun stopRefreshTimer() {
         if (refreshTimer == null) {
             return
         }

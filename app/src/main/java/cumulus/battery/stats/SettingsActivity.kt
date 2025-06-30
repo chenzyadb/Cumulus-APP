@@ -4,11 +4,12 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Resources
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AlertDialog
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,8 +36,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
+import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusBlue
+import cumulus.battery.stats.ui.theme.cumulusPink
 import cumulus.battery.stats.ui.theme.cumulusPurple
 
 class SettingsActivity : ComponentActivity() {
@@ -88,7 +92,11 @@ class SettingsActivity : ComponentActivity() {
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(top = it.calculateTopPadding() + 10.dp, start = 20.dp, end = 20.dp)
+                                .padding(
+                                    top = it.calculateTopPadding() + 10.dp,
+                                    start = 20.dp,
+                                    end = 20.dp
+                                )
                                 .fillMaxSize()
                                 .padding(top = 10.dp)
                                 .verticalScroll(rememberScrollState()),
@@ -107,6 +115,7 @@ class SettingsActivity : ComponentActivity() {
                                 maxLines = 1
                             )
                             RequireIgnoreBatteryOptimizationButton()
+                            DeleteHistoryDataButton()
                             Text(
                                 modifier = Modifier
                                     .padding(start = 20.dp, top = 20.dp)
@@ -140,13 +149,13 @@ class SettingsActivity : ComponentActivity() {
         TextButton(
             onClick = {
                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                intent.data = Uri.parse("package:" + this.packageName)
+                intent.data = ("package:" + applicationContext.packageName).toUri()
                 startActivity(intent)
             },
             shape = RoundedCornerShape(10.dp),
             contentPadding = PaddingValues(0.dp),
             modifier = Modifier
-                .padding(top = 5.dp)
+                .padding(top = 10.dp)
                 .height(50.dp)
                 .fillMaxWidth()
         ) {
@@ -181,27 +190,87 @@ class SettingsActivity : ComponentActivity() {
         }
     }
 
+    @Composable
+    private fun DeleteHistoryDataButton() {
+        TextButton(
+            onClick = {
+                deleteHistoryData()
+            },
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier
+                .height(50.dp)
+                .fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 20.dp, end = 20.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "清除历史数据",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.arrow_forward),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .height(16.dp)
+                            .width(16.dp)
+                    )
+                }
+            }
+        }
+    }
+
     @Suppress("deprecation")
     @Composable
     private fun AboutInformation() {
-        val versionName = packageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA).versionName
-        val versionCode = packageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA).versionCode
+        val versionName =
+            packageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA).versionName
+        val versionCode =
+            packageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA).versionCode
 
         Column(
             modifier = Modifier
                 .padding(start = 20.dp, end = 20.dp, top = 5.dp)
                 .fillMaxWidth()
-                .height(80.dp),
+                .height(90.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.Start
         ) {
-            Text(
-                text = "Cumulus",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = cumulusBlue,
-                maxLines = 1
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Cu",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = cumulusPink,
+                    maxLines = 1
+                )
+                Text(
+                    text = "mulus",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = cumulusBlue,
+                    maxLines = 1
+                )
+            }
             Text(
                 text = "版本: ${versionName} (${versionCode})",
                 fontSize = 14.sp,
@@ -210,12 +279,31 @@ class SettingsActivity : ComponentActivity() {
                 maxLines = 1
             )
             Text(
-                text = "Copyright (C) Chenzyadb 2023",
+                text = "Copyright (C) Chenzyadb 2025",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.secondary,
                 maxLines = 1
             )
         }
+    }
+
+    private fun deleteHistoryData() {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("警告")
+        builder.setMessage("清除数据操作不可逆")
+        builder.setPositiveButton("继续") { _, _ ->
+            BatteryStatsRecorder.deleteHistoryData()
+            Toast.makeText(
+                applicationContext,
+                "历史数据已清除",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        builder.setNegativeButton("取消") { _, _ ->
+            Toast.makeText(applicationContext, "已取消操作", Toast.LENGTH_LONG).show()
+        }
+        val dialog = builder.create()
+        dialog.show()
     }
 }

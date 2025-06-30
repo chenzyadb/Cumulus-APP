@@ -85,7 +85,11 @@ class AdditionalFunctionActivity : ComponentActivity() {
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(top = it.calculateTopPadding() + 10.dp, start = 20.dp, end = 20.dp)
+                                .padding(
+                                    top = it.calculateTopPadding() + 10.dp,
+                                    start = 20.dp,
+                                    end = 20.dp
+                                )
                                 .fillMaxSize()
                                 .padding(top = 10.dp)
                                 .verticalScroll(rememberScrollState()),
@@ -118,7 +122,8 @@ class AdditionalFunctionActivity : ComponentActivity() {
                     stopService(intent)
                 } else {
                     if (!Settings.canDrawOverlays(this)) {
-                        Toast.makeText(applicationContext, "请授权悬浮窗权限", Toast.LENGTH_LONG).show()
+                        Toast.makeText(applicationContext, "请授权悬浮窗权限", Toast.LENGTH_LONG)
+                            .show()
                         val intent = Intent()
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         intent.action = "android.settings.APPLICATION_DETAILS_SETTINGS"

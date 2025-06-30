@@ -36,13 +36,13 @@ class FloatMonitorService : Service() {
     override fun onCreate() {
         super.onCreate()
         serviceCreated = true
-        CreateFloatWindow()
-        StartTimer()
+        createFloatWindow()
+        startTimer()
     }
 
     override fun onDestroy() {
-        StopTimer()
-        DestroyFloatWindow()
+        stopTimer()
+        destroyFloatWindow()
         serviceCreated = false
         super.onDestroy()
     }
@@ -51,7 +51,7 @@ class FloatMonitorService : Service() {
         return super.onStartCommand(intent, START_FLAG_REDELIVERY, startId)
     }
 
-    private fun CreateFloatWindow() {
+    private fun createFloatWindow() {
         if (floatWindow != null) {
             return
         }
@@ -59,16 +59,17 @@ class FloatMonitorService : Service() {
         floatWindow!!.setBackgroundColor(Color(0x88000000).toArgb())
         val penddingVal = (applicationContext.resources.displayMetrics.density * 5 + 0.5f).toInt()
         floatWindow!!.setPadding(penddingVal, penddingVal, penddingVal, penddingVal)
-        floatWindow!!.setText("")
+        floatWindow!!.text = ""
         floatWindow!!.setTextColor(Color(0xFFFFFFFF).toArgb())
-        floatWindow!!.setTextSize(9f)
+        floatWindow!!.textSize = 9f
         val typeface = ResourcesCompat.getFont(applicationContext, R.font.jetbrainsmono)
         floatWindow!!.setTypeface(typeface)
 
         val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         val layoutParams = WindowManager.LayoutParams()
         layoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        layoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE + WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        layoutParams.flags =
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE + WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         layoutParams.format = PixelFormat.RGBA_8888
         layoutParams.width = LinearLayout.LayoutParams.WRAP_CONTENT
         layoutParams.height = LinearLayout.LayoutParams.WRAP_CONTENT
@@ -77,16 +78,17 @@ class FloatMonitorService : Service() {
         windowManager.addView(floatWindow, layoutParams)
     }
 
-    private fun DestroyFloatWindow() {
+    private fun destroyFloatWindow() {
         val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         windowManager.removeViewImmediate(floatWindow)
     }
 
-    private fun UpdateMonitorText() {
+    private fun updateMonitorText() {
         val batteryCapacity = BatteryStatsProvider.getBatteryCapacity(applicationContext)
         val batteryTemperature = BatteryStatsProvider.getBatteryTemperature(applicationContext)
         val batteryCurrent = BatteryStatsProvider.getBatteryCurrent(applicationContext)
-        val batteryPower = BatteryStatsProvider.getBatteryVoltage(applicationContext) * batteryCurrent / 1000
+        val batteryPower =
+            BatteryStatsProvider.getBatteryVoltage(applicationContext) * batteryCurrent / 1000
         val cpuFreqs = CpuStatsProvider.getCpuFreqs()
         val cpuGovernor = CpuStatsProvider.getCpuGovernor()
         var monitorText = ""
@@ -103,23 +105,23 @@ class FloatMonitorService : Service() {
             if (floatWindow == null) {
                 return@post
             }
-            floatWindow!!.setText(monitorText)
+            floatWindow!!.text = monitorText
         }
     }
 
-    private fun StartTimer() {
+    private fun startTimer() {
         if (timer != null) {
             return
         }
         timer = Timer()
         timer!!.schedule(object : TimerTask() {
             override fun run() {
-                UpdateMonitorText()
+                updateMonitorText()
             }
         }, 0, 1000)
     }
 
-    private fun StopTimer() {
+    private fun stopTimer() {
         if (timer == null) {
             return
         }

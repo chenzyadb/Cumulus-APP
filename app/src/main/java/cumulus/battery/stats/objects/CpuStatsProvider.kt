@@ -3,7 +3,8 @@ package cumulus.battery.stats.objects
 import java.io.File
 
 object CpuStatsProvider {
-    private val cpuGovernorFile: File = File("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+    private val cpuGovernorFile: File =
+        File("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
     private val cpuFreqFiles: MutableList<File> = mutableListOf()
 
     init {

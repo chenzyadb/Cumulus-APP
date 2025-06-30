@@ -8,8 +8,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+
+private fun DpToPx(density: Float, dp: Float): Float {
+    return (dp * density)
+}
 
 @Composable
 fun SingleLineChart(
@@ -18,54 +24,70 @@ fun SingleLineChart(
     tickMax: Int,
     lineColor: Color
 ) {
+    val density = LocalContext.current.resources.displayMetrics.density
     Canvas(
         modifier = modifier
     ) {
         val nativeCanvas = drawContext.canvas.nativeCanvas
+
         for (i in 0..4) {
-            val y = 10f + (size.height - 20f) * i / 4
+            val y = DpToPx(density, 5f) + (size.height - DpToPx(density, 10f)) * i / 4
             drawLine(
-                color = Color(0xFF888888),
-                strokeWidth = 4f,
-                start = Offset(x = 10f, y = y),
-                end = Offset(x = size.width - 50f, y = y),
+                color = Color(0xFFAAAAAA),
+                strokeWidth = DpToPx(density, 1f),
+                start = Offset(x = 0f, y = y),
+                end = Offset(x = size.width - DpToPx(density, 20f), y = y),
+                pathEffect = PathEffect.dashPathEffect(
+                    intervals = floatArrayOf(DpToPx(density, 1f), DpToPx(density, 1f)),
+                    phase = 0f
+                )
             )
         }
+
         val tickPaint = Paint().let {
             it.apply {
                 style = Paint.Style.FILL
-                strokeWidth = 4f
-                textSize = 28f
-                color = Color(0xFF888888).toArgb()
+                strokeWidth = DpToPx(density, 1f)
+                textSize = DpToPx(density, 8f)
+                color = Color(0xFFAAAAAA).toArgb()
                 isAntiAlias = true
             }
         }
-        for (i in 1..4) {
-            val text = (tickMax * i / 4).toString()
-            val y = (size.height - 5f) - (size.height - 20f) * i / 4
-            nativeCanvas.drawText(text, size.width - 40f, y, tickPaint)
+        for (i in 0..4) {
+            val tickValue = tickMax.toDouble() * i / 4
+            if (tickValue % 1.0 == 0.0) {
+                val text = tickValue.toInt().toString()
+                val y = (size.height - DpToPx(density, 2f)) -
+                        (size.height - DpToPx(density, 10f)) * i / 4
+                nativeCanvas.drawText(text, size.width - DpToPx(density, 15f), y, tickPaint)
+            }
         }
+
         val chartPaint = Paint().let {
             it.apply {
                 style = Paint.Style.STROKE
-                strokeWidth = 8f
+                strokeWidth = DpToPx(density, 2f)
                 color = lineColor.toArgb()
                 isAntiAlias = true
             }
         }
         if (lineDataArray.lastIndex > 2) {
             val chartPath = Path()
-            val startX = 10f
-            val startY = (size.height - 10f) - (size.height - 20f) * lineDataArray[0] / tickMax
-            chartPath.moveTo(startX, startY)
-            var previousPoint = Offset(startX, startY)
+            val startY =
+                (size.height - DpToPx(density, 5f)) -
+                        (size.height - DpToPx(density, 10f)) * lineDataArray[0] / tickMax
+            chartPath.moveTo(0f, startY)
+            var previousPoint = Offset(0f, startY)
             for (i in 1..lineDataArray.lastIndex) {
                 if (lineDataArray[i] <= tickMax && lineDataArray[i] >= 0) {
-                    val x = 10f + (size.width - 60f) * i / lineDataArray.lastIndex
-                    val y = (size.height - 10f) - (size.height - 20f) * lineDataArray[i] / tickMax
+                    val x = (size.width - DpToPx(density, 20f)) * i / lineDataArray.lastIndex
+                    val y = (size.height - DpToPx(density, 5f)) -
+                            (size.height - DpToPx(density, 10f)) * lineDataArray[i] / tickMax
                     val currentPoint = Offset(x, y)
-                    val bezierControlPoint1 = previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
-                    val bezierControlPoint2 = currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                    val bezierControlPoint1 =
+                        previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                    val bezierControlPoint2 =
+                        currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
                     chartPath.cubicTo(
                         bezierControlPoint1.x,
                         bezierControlPoint1.y,
@@ -94,51 +116,72 @@ fun MultiLineChart(
     line0Title: String,
     line1Title: String
 ) {
+    val density = LocalContext.current.resources.displayMetrics.density
     Canvas(
         modifier = modifier
     ) {
         val nativeCanvas = drawContext.canvas.nativeCanvas
+
         for (i in 0..4) {
-            val y = 10f + (size.height - 60f) * i / 4
+            val y = DpToPx(density, 5f) + (size.height - DpToPx(density, 30f)) * i / 4
             drawLine(
-                color = Color(0xFF888888),
-                strokeWidth = 4f,
-                start = Offset(x = 80f, y = y),
-                end = Offset(x = size.width - 80f, y = y),
+                color = Color(0xFFAAAAAA),
+                strokeWidth = DpToPx(density, 1f),
+                start = Offset(x = DpToPx(density, 20f), y = y),
+                end = Offset(x = size.width - DpToPx(density, 20f), y = y),
+                pathEffect = PathEffect.dashPathEffect(
+                    intervals = floatArrayOf(DpToPx(density, 1f), DpToPx(density, 1f)),
+                    phase = 0f
+                )
             )
         }
+
         val tickPaint = Paint().let {
             it.apply {
                 style = Paint.Style.FILL
-                strokeWidth = 4f
-                textSize = 28f
-                color = Color(0xFF888888).toArgb()
+                strokeWidth = DpToPx(density, 1f)
+                textSize = DpToPx(density, 8f)
+                color = Color(0xFFAAAAAA).toArgb()
                 isAntiAlias = true
             }
         }
-        for (i in 1..4) {
-            val text = (tick0Max * i / 4).toString()
-            val y = (size.height - 45f) - (size.height - 60f) * i / 4
-            nativeCanvas.drawText(text, 0f, y, tickPaint)
+        for (i in 0..4) {
+            val tickValue = tick0Max.toDouble() * i / 4
+            if (tickValue % 1.0 == 0.0) {
+                val text = tickValue.toInt().toString()
+                val y = (size.height - DpToPx(density, 22f)) -
+                        (size.height - DpToPx(density, 30f)) * i / 4
+                nativeCanvas.drawText(text, 0f, y, tickPaint)
+            }
         }
         for (i in 1..4) {
-            val text = (tick1Max * i / 4).toString()
-            val y = (size.height - 45f) - (size.height - 60f) * i / 4
-            nativeCanvas.drawText(text, size.width - 70f, y, tickPaint)
+            val tickValue = tick1Max.toDouble() * i / 4
+            if (tickValue % 1.0 == 0.0) {
+                val text = tickValue.toInt().toString()
+                val y = (size.height - DpToPx(density, 22f)) -
+                        (size.height - DpToPx(density, 30f)) * i / 4
+                nativeCanvas.drawText(text, (size.width - DpToPx(density, 15f)), y, tickPaint)
+            }
         }
+
         if (line0DataArray.lastIndex > 2) {
             val chartPath = Path()
-            val startX = 80f
-            val startY = (size.height - 50f) - (size.height - 60f) * line0DataArray[0] / tick0Max
+            val startX = DpToPx(density, 20f)
+            val startY = (size.height - DpToPx(density, 25f)) -
+                    (size.height - DpToPx(density, 30f)) * line0DataArray[0] / tick0Max
             chartPath.moveTo(startX, startY)
             var previousPoint = Offset(startX, startY)
             for (i in 1..line0DataArray.lastIndex) {
                 if (line0DataArray[i] <= tick0Max && line0DataArray[i] >= 0) {
-                    val x = startX + (size.width - 160f) * i / line0DataArray.lastIndex
-                    val y = (size.height - 50f) - (size.height - 60f) * line0DataArray[i] / tick0Max
+                    val x =
+                        startX + (size.width - DpToPx(density, 40f)) * i / line0DataArray.lastIndex
+                    val y = (size.height - DpToPx(density, 25f)) -
+                            (size.height - DpToPx(density, 30f)) * line0DataArray[i] / tick0Max
                     val currentPoint = Offset(x, y)
-                    val bezierControlPoint1 = previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
-                    val bezierControlPoint2 = currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                    val bezierControlPoint1 =
+                        previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                    val bezierControlPoint2 =
+                        currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
                     chartPath.cubicTo(
                         bezierControlPoint1.x,
                         bezierControlPoint1.y,
@@ -153,26 +196,32 @@ fun MultiLineChart(
             val chartPaint = Paint().let {
                 it.apply {
                     style = Paint.Style.STROKE
-                    strokeWidth = 4f
+                    strokeWidth = DpToPx(density, 2f)
                     color = line0Color.toArgb()
                     isAntiAlias = true
                 }
             }
             nativeCanvas.drawPath(chartPath, chartPaint)
         }
+
         if (line1DataArray.lastIndex > 2) {
             val chartPath = Path()
-            val startX = 80f
-            val startY = (size.height - 50f) - (size.height - 60f) * line1DataArray[0] / tick1Max
+            val startX = DpToPx(density, 20f)
+            val startY = (size.height - DpToPx(density, 25f)) -
+                    (size.height - DpToPx(density, 30f)) * line1DataArray[0] / tick1Max
             chartPath.moveTo(startX, startY)
             var previousPoint = Offset(startX, startY)
             for (i in 1..line1DataArray.lastIndex) {
                 if (line1DataArray[i] <= tick1Max && line1DataArray[i] >= 0) {
-                    val x = startX + (size.width - 160f) * i / line1DataArray.lastIndex
-                    val y = (size.height - 50f) - (size.height - 60f) * line1DataArray[i] / tick1Max
+                    val x =
+                        startX + (size.width - DpToPx(density, 40f)) * i / line1DataArray.lastIndex
+                    val y = (size.height - DpToPx(density, 25f)) -
+                            (size.height - DpToPx(density, 30f)) * line1DataArray[i] / tick1Max
                     val currentPoint = Offset(x, y)
-                    val bezierControlPoint1 = previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
-                    val bezierControlPoint2 = currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                    val bezierControlPoint1 =
+                        previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                    val bezierControlPoint2 =
+                        currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
                     chartPath.cubicTo(
                         bezierControlPoint1.x,
                         bezierControlPoint1.y,
@@ -187,42 +236,57 @@ fun MultiLineChart(
             val chartPaint = Paint().let {
                 it.apply {
                     style = Paint.Style.STROKE
-                    strokeWidth = 4f
+                    strokeWidth = DpToPx(density, 2f)
                     color = line1Color.toArgb()
                     isAntiAlias = true
                 }
             }
             nativeCanvas.drawPath(chartPath, chartPaint)
         }
+
         drawRect(
             color = line0Color,
-            topLeft = Offset(100f, size.height - 40f),
-            size = Size(width = 50f, height = 40f)
+            topLeft = Offset(DpToPx(density, 30f), size.height - DpToPx(density, 15f)),
+            size = Size(width = DpToPx(density, 15f), height = DpToPx(density, 10f))
         )
         val line0TitlePaint = Paint().let {
             it.apply {
                 style = Paint.Style.FILL
-                strokeWidth = 4f
-                textSize = 28f
+                strokeWidth = DpToPx(density, 1f)
+                textSize = DpToPx(density, 8f)
                 color = line0Color.toArgb()
                 isAntiAlias = true
             }
         }
-        nativeCanvas.drawText(line0Title, 160f, size.height - 10f, line0TitlePaint)
+        nativeCanvas.drawText(
+            line0Title,
+            DpToPx(density, 50f),
+            size.height - DpToPx(density, 8f),
+            line0TitlePaint
+        )
+
         drawRect(
             color = line1Color,
-            topLeft = Offset((size.width - 160f) / 2 + 20f, size.height - 40f),
-            size = Size(width = 50f, height = 40f)
+            topLeft = Offset(
+                (size.width - DpToPx(density, 40f)) / 2,
+                size.height - DpToPx(density, 15f)
+            ),
+            size = Size(width = DpToPx(density, 15f), height = DpToPx(density, 10f))
         )
         val line1TitlePaint = Paint().let {
             it.apply {
                 style = Paint.Style.FILL
-                strokeWidth = 4f
-                textSize = 28f
+                strokeWidth = DpToPx(density, 1f)
+                textSize = DpToPx(density, 8f)
                 color = line1Color.toArgb()
                 isAntiAlias = true
             }
         }
-        nativeCanvas.drawText(line1Title, (size.width - 160f) / 2 + 80f, size.height - 10f, line1TitlePaint)
+        nativeCanvas.drawText(
+            line1Title,
+            (size.width - DpToPx(density, 40f)) / 2 + DpToPx(density, 20f),
+            size.height - DpToPx(density, 8f),
+            line1TitlePaint
+        )
     }
 }

@@ -22,7 +22,10 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
@@ -56,7 +59,6 @@ android {
 
 dependencies {
     implementation(libs.compose.markdown)
-    implementation(libs.fastjson2)
     implementation(libs.coil)
     implementation(libs.appcompat)
     implementation(libs.core.ktx)
