@@ -1,2 +1,3 @@
 # Cumulus-APP
-A simple Android project for practice.
+A Simple Android Battery Monitoring APP.  
+Opensourced under GPL3 License.
