@@ -56,6 +56,7 @@ import cumulus.battery.stats.ui.theme.cumulusPink
 import cumulus.battery.stats.ui.theme.cumulusPurple
 import cumulus.battery.stats.utils.BattStatsRecordAnalysis
 import cumulus.battery.stats.utils.DurationToText
+import cumulus.battery.stats.utils.SimplifyDataPoints
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -69,7 +70,6 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
     private var screenOffDuration: Long by mutableLongStateOf(0)
     private var perappPowerList: Map<String, List<Int>> by mutableStateOf(mapOf())
     private var perappTemperatureList: Map<String, List<Int>> by mutableStateOf(mapOf())
-    private var perappUsedPercentage: Map<String, Int> by mutableStateOf(mapOf())
     private var perappUsedTime: Map<String, Long> by mutableStateOf(mapOf())
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -345,116 +345,119 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
 
     @Composable
     private fun AppDetailsBar(pkgName: String) {
-        Column(
-            modifier = Modifier
-                .padding(top = 10.dp)
-                .fillMaxWidth()
-                .background(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(10.dp)
-                ),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            var showMoreDetails by remember { mutableStateOf(false) }
-            TextButton(
-                onClick = { showMoreDetails = !showMoreDetails },
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(0.dp),
+        val usedTime = perappUsedTime[pkgName]
+        val appPowerList = perappPowerList[pkgName]
+        val appTemperatureList = perappTemperatureList[pkgName]
+        if (usedTime != null && !appPowerList.isNullOrEmpty() && !appTemperatureList.isNullOrEmpty()) {
+            val maxPower = appPowerList.max()
+            val averagePower = appPowerList.average().toInt()
+            val maxTemperature = appTemperatureList.max()
+            val averageTemperarure = appTemperatureList.average().toInt()
+            val usedPercentage = (averagePower.toDouble() * usedTime) /
+                    (screenOnAveragePower * screenOnDuration) * screenOnUsedPercentage
+
+            Column(
                 modifier = Modifier
-                    .height(60.dp)
+                    .padding(top = 10.dp)
                     .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(10.dp)
+                    ),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
+                var showMoreDetails by remember { mutableStateOf(false) }
+                TextButton(
+                    onClick = { showMoreDetails = !showMoreDetails },
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(0.dp),
                     modifier = Modifier
-                        .padding(start = 20.dp)
-                        .fillMaxSize(),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically
+                        .height(60.dp)
+                        .fillMaxWidth()
                 ) {
-                    var appIcon = getAppIcon(pkgName)
-                    if (appIcon == null) {
-                        appIcon = getUnknownAppIcon()
-                    }
-                    Image(
-                        bitmap = appIcon.toBitmap().asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(40.dp)
-                            .width(40.dp)
-                    )
-                    Column(
+                    Row(
                         modifier = Modifier
                             .padding(start = 20.dp)
-                            .fillMaxHeight()
-                            .width(200.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.Start
+                            .fillMaxSize(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = getAppName(pkgName),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Row(
+                        var appIcon = getAppIcon(pkgName)
+                        if (appIcon == null) {
+                            appIcon = getUnknownAppIcon()
+                        }
+                        Image(
+                            bitmap = appIcon.toBitmap().asImageBitmap(),
+                            contentDescription = null,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(20.dp),
-                            horizontalArrangement = Arrangement.Start,
-                            verticalAlignment = Alignment.CenterVertically
+                                .height(40.dp)
+                                .width(40.dp)
+                        )
+                        Column(
+                            modifier = Modifier
+                                .padding(start = 20.dp)
+                                .fillMaxHeight()
+                                .width(180.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.Start
                         ) {
-                            var usedTime = perappUsedTime[pkgName]
-                            if (usedTime == null) {
-                                usedTime = 0
-                            }
                             Text(
-                                text = "屏幕使用时间: ",
+                                text = getAppName(pkgName),
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.Normal,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(20.dp),
+                                horizontalArrangement = Arrangement.Start,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "使用时间: ",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = DurationToText(usedTime),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = cumulusBlue,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier
+                                .padding(end = 20.dp)
+                                .fillMaxSize(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            var usedPercentageText = "<1%"
+                            if (usedPercentage >= 1.0) {
+                                usedPercentageText = usedPercentage.toInt().toString() + "%"
+                            }
                             Text(
-                                text = DurationToText(usedTime),
+                                text = usedPercentageText,
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Bold,
                                 color = cumulusBlue,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
-                    Row(
-                        modifier = Modifier
-                            .padding(end = 20.dp)
-                            .fillMaxSize(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        var usedPercentageText = "<1%"
-                        val usedPercentage = perappUsedPercentage[pkgName]
-                        if (usedPercentage != null && usedPercentage > 0) {
-                            usedPercentageText = "${usedPercentage}%"
-                        }
-                        Text(
-                            text = usedPercentageText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = cumulusBlue,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                 }
-            }
-            AnimatedVisibility(visible = showMoreDetails) {
-                val appPowerList = perappPowerList[pkgName]
-                val appTemperatureList = perappTemperatureList[pkgName]
-                if (!appPowerList.isNullOrEmpty() && !appTemperatureList.isNullOrEmpty()) {
+                AnimatedVisibility(visible = showMoreDetails) {
                     Column(
                         modifier = Modifier
                             .padding(start = 20.dp, top = 10.dp, end = 20.dp)
@@ -463,17 +466,14 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        val maxPower = appPowerList.max()
-                        val averagePower = appPowerList.average().toInt()
-                        val maxTemperature = appTemperatureList.max()
-                        val averageTemperarure = appTemperatureList.average().toInt()
+                        val line0DataArray =
+                            appPowerList.map { it / 1000 }.toTypedArray().toIntArray()
                         MultiLineChart(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp),
-                            line0DataArray = appPowerList.map { it / 1000 }.toTypedArray()
-                                .toIntArray(),
-                            line1DataArray = appTemperatureList.toIntArray(),
+                            line0DataArray = SimplifyDataPoints(line0DataArray),
+                            line1DataArray = SimplifyDataPoints(appTemperatureList.toIntArray()),
                             tick0Max = (maxPower / 1000 / 10 + 1) * 10,
                             tick1Max = (maxTemperature / 10 + 1) * 10,
                             line0Color = cumulusBlue,
@@ -597,7 +597,6 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
             screenOffDuration = recordAnalysis.getScreenOffDuration()
             perappPowerList = recordAnalysis.getPerappPowerList()
             perappTemperatureList = recordAnalysis.getPerappTemperatureList()
-            perappUsedPercentage = recordAnalysis.getPerappUsedPercentage()
             perappUsedTime = recordAnalysis.getPerappUsedTime()
         }
     }

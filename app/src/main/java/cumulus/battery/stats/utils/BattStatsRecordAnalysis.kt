@@ -70,12 +70,17 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
     }
 
     fun getUsagePercentageList(): List<Int> {
-        if (dischargingRecords.isNotEmpty()) {
+        if (records.isNotEmpty()) {
             val percentageList: MutableList<Int> = mutableListOf()
-            for (item in dischargingRecords) {
-                percentageList.add(item.batteryPercentage)
+            val minTimestamp = GetTimeStamp() - 24L * 3600L
+            for (i in records.lastIndex downTo 0) {
+                if (records[i].timestamp > minTimestamp) {
+                    percentageList.add(records[i].batteryPercentage)
+                } else {
+                    break
+                }
             }
-            return percentageList
+            return percentageList.reversed()
         }
         return listOf()
     }
@@ -196,23 +201,6 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
                 perappTemperatureList[item.packageName]!!.add(item.batteryTemperature)
             }
             return perappTemperatureList
-        }
-        return mapOf()
-    }
-
-    fun getPerappUsedPercentage(): Map<String, Int> {
-        if (dischargingRecords.isNotEmpty()) {
-            val perappUsedPercentage: MutableMap<String, Int> = mutableMapOf()
-            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                if ((dischargingRecords[i].batteryPercentage - dischargingRecords[i + 1].batteryPercentage) > 0) {
-                    if (!perappUsedPercentage.containsKey(dischargingRecords[i].packageName)) {
-                        perappUsedPercentage[dischargingRecords[i].packageName] = 0
-                    }
-                    perappUsedPercentage[dischargingRecords[i].packageName] =
-                        perappUsedPercentage[dischargingRecords[i].packageName]!! + 1
-                }
-            }
-            return perappUsedPercentage
         }
         return mapOf()
     }

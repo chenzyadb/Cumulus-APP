@@ -48,6 +48,7 @@ import cumulus.battery.stats.ui.theme.cumulusPurple
 import cumulus.battery.stats.utils.BattStatsRecordAnalysis
 import cumulus.battery.stats.utils.BatteryHealthReport
 import cumulus.battery.stats.utils.DurationToText
+import cumulus.battery.stats.utils.SimplifyDataPoints
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -340,7 +341,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     .padding(start = 20.dp, end = 20.dp, top = 10.dp)
                     .fillMaxWidth()
                     .height(120.dp),
-                lineDataArray = chargingPercentageArray,
+                lineDataArray = SimplifyDataPoints(chargingPercentageArray),
                 tickMax = 100,
                 lineColor = cumulusBlue
             )
@@ -369,6 +370,7 @@ class ChargingProcessActivity : ComponentActivity() {
             if (chargingMaxTemperature > 0) {
                 tick1Max = chargingMaxTemperature / 10 * 10 + 10
             }
+            val line0DataArray = chargingPowerArray.map { it / 1000 }.toTypedArray().toIntArray()
             Text(
                 modifier = Modifier.padding(start = 20.dp, top = 10.dp),
                 text = "功率/温度变化曲线",
@@ -381,8 +383,8 @@ class ChargingProcessActivity : ComponentActivity() {
                     .padding(start = 20.dp, end = 20.dp, top = 10.dp)
                     .fillMaxWidth()
                     .height(150.dp),
-                line0DataArray = chargingPowerArray.map { it / 1000 }.toTypedArray().toIntArray(),
-                line1DataArray = chargingTemperatureArray,
+                line0DataArray = SimplifyDataPoints(line0DataArray),
+                line1DataArray = SimplifyDataPoints(chargingTemperatureArray),
                 tick0Max = tick0Max,
                 tick1Max = tick1Max,
                 line0Color = cumulusBlue,
