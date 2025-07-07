@@ -39,9 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
-import cumulus.battery.stats.ui.theme.cumulusBlue
-import cumulus.battery.stats.ui.theme.cumulusPink
-import cumulus.battery.stats.ui.theme.cumulusPurple
+import cumulus.battery.stats.ui.theme.cumulusColor
 
 class SettingsActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -111,7 +109,7 @@ class SettingsActivity : ComponentActivity() {
                                 text = "应用设置",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = cumulusPurple,
+                                color = cumulusColor().purple,
                                 maxLines = 1
                             )
                             RequireIgnoreBatteryOptimizationButton()
@@ -124,7 +122,7 @@ class SettingsActivity : ComponentActivity() {
                                 text = "关于",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = cumulusPurple,
+                                color = cumulusColor().purple,
                                 maxLines = 1
                             )
                             AboutInformation()
@@ -260,14 +258,14 @@ class SettingsActivity : ComponentActivity() {
                     text = "Cu",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = cumulusPink,
+                    color = cumulusColor().pink,
                     maxLines = 1
                 )
                 Text(
                     text = "mulus",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1
                 )
             }

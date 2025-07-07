@@ -51,9 +51,7 @@ import androidx.core.graphics.drawable.toDrawable
 import cumulus.battery.stats.charts.MultiLineChart
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
-import cumulus.battery.stats.ui.theme.cumulusBlue
-import cumulus.battery.stats.ui.theme.cumulusPink
-import cumulus.battery.stats.ui.theme.cumulusPurple
+import cumulus.battery.stats.ui.theme.cumulusColor
 import cumulus.battery.stats.utils.BattStatsRecordAnalysis
 import cumulus.battery.stats.utils.DurationToText
 import cumulus.battery.stats.utils.SimplifyDataPoints
@@ -138,7 +136,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 text = "应用使用详情",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = cumulusPurple
+                                color = cumulusColor().purple
                             )
                             AppDetailsList()
                         }
@@ -198,7 +196,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         text = "${screenOnUsedPercentage}%",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -220,7 +218,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         text = "${screenOnAveragePower}mW",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -242,7 +240,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         text = DurationToText(screenOnDuration),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -272,7 +270,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         text = "${screenOffUsedPercentage}%",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -294,7 +292,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         text = "${screenOffAveragePower}mW",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -316,7 +314,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         text = DurationToText(screenOffDuration),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -429,7 +427,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                     text = DurationToText(usedTime),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = cumulusBlue,
+                                    color = cumulusColor().blue,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -450,7 +448,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 text = usedPercentageText,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = cumulusBlue,
+                                color = cumulusColor().blue,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -476,8 +474,8 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                             line1DataArray = SimplifyDataPoints(appTemperatureList.toIntArray()),
                             tick0Max = (maxPower / 1000 / 10 + 1) * 10,
                             tick1Max = (maxTemperature / 10 + 1) * 10,
-                            line0Color = cumulusBlue,
-                            line1Color = cumulusPink,
+                            line0Color = cumulusColor().blue,
+                            line1Color = cumulusColor().pink,
                             line0Title = "功率(W)",
                             line1Title = "温度(°C)"
                         )
@@ -501,7 +499,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 text = maxPower.toString(),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = cumulusBlue,
+                                color = cumulusColor().blue,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -517,7 +515,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 text = averagePower.toString(),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = cumulusBlue,
+                                color = cumulusColor().blue,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -550,7 +548,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 text = maxTemperature.toString(),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = cumulusBlue,
+                                color = cumulusColor().blue,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -566,7 +564,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 text = averageTemperarure.toString(),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = cumulusBlue,
+                                color = cumulusColor().blue,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )

@@ -42,9 +42,7 @@ import cumulus.battery.stats.charts.SingleLineChart
 import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
-import cumulus.battery.stats.ui.theme.cumulusBlue
-import cumulus.battery.stats.ui.theme.cumulusPink
-import cumulus.battery.stats.ui.theme.cumulusPurple
+import cumulus.battery.stats.ui.theme.cumulusColor
 import cumulus.battery.stats.utils.BattStatsRecordAnalysis
 import cumulus.battery.stats.utils.BatteryHealthReport
 import cumulus.battery.stats.utils.DurationToText
@@ -186,7 +184,7 @@ class ChargingProcessActivity : ComponentActivity() {
                         text = DurationToText(chargingDuration),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -208,7 +206,7 @@ class ChargingProcessActivity : ComponentActivity() {
                         text = "${chargingPercentage}%",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -231,7 +229,7 @@ class ChargingProcessActivity : ComponentActivity() {
                         text = "${powerText}W",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -262,7 +260,7 @@ class ChargingProcessActivity : ComponentActivity() {
                         text = "${powerText}W",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -284,7 +282,7 @@ class ChargingProcessActivity : ComponentActivity() {
                         text = "${chargingMaxTemperature}°C",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -306,7 +304,7 @@ class ChargingProcessActivity : ComponentActivity() {
                         text = "${chargingAverageTemperature}°C",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -334,7 +332,7 @@ class ChargingProcessActivity : ComponentActivity() {
                 text = "电池充电曲线",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = cumulusPurple
+                color = cumulusColor().purple
             )
             SingleLineChart(
                 modifier = Modifier
@@ -343,7 +341,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     .height(120.dp),
                 lineDataArray = SimplifyDataPoints(chargingPercentageArray),
                 tickMax = 100,
-                lineColor = cumulusBlue
+                lineColor = cumulusColor().blue
             )
         }
     }
@@ -376,7 +374,7 @@ class ChargingProcessActivity : ComponentActivity() {
                 text = "功率/温度变化曲线",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = cumulusPurple
+                color = cumulusColor().purple
             )
             MultiLineChart(
                 modifier = Modifier
@@ -387,8 +385,8 @@ class ChargingProcessActivity : ComponentActivity() {
                 line1DataArray = SimplifyDataPoints(chargingTemperatureArray),
                 tick0Max = tick0Max,
                 tick1Max = tick1Max,
-                line0Color = cumulusBlue,
-                line1Color = cumulusPink,
+                line0Color = cumulusColor().blue,
+                line1Color = cumulusColor().pink,
                 line0Title = "功率(W)",
                 line1Title = "温度(°C)"
             )
@@ -415,7 +413,7 @@ class ChargingProcessActivity : ComponentActivity() {
                 text = "电池健康数据",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = cumulusPurple
+                color = cumulusColor().purple
             )
             Row(
                 modifier = Modifier
@@ -437,7 +435,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     text = batteryHealthReport.sampleSize.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -470,7 +468,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     text = batteryHealthReport.totalChargedCapacity.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -486,7 +484,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     text = batteryHealthReport.totalChargedPercentage.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -519,7 +517,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     text = batteryHealthReport.estimatingCapacity.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -536,7 +534,7 @@ class ChargingProcessActivity : ComponentActivity() {
                         .toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -573,7 +571,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     text = designCapacity.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -589,7 +587,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     text = String.format("%.2f", healthPercentage),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

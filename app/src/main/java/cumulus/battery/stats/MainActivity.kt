@@ -46,15 +46,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cumulus.battery.stats.charts.SingleLineChart
 import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
-import cumulus.battery.stats.ui.theme.cumulusBlue
-import cumulus.battery.stats.ui.theme.cumulusPurple
-import cumulus.battery.stats.ui.theme.cumulusYellow
+import cumulus.battery.stats.ui.theme.cumulusColor
 import cumulus.battery.stats.utils.BattStatsRecordAnalysis
 import cumulus.battery.stats.utils.DurationToText
 import cumulus.battery.stats.utils.SimplifyDataPoints
@@ -130,7 +129,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             BatteryStatsBar()
                             BackgroundServiceHint()
-                            CurRecordBasicInfoBar()
+                            BatteryBasicInfoBar()
                             PowerConsumptionAnalysisButton()
                             ChargingProcessButton()
                             AdditionalFunctionButton()
@@ -224,7 +223,7 @@ class MainActivity : ComponentActivity() {
                         text = "${batteryCapacity}%",
                         fontSize = 40.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusBlue,
+                        color = cumulusColor().blue,
                         maxLines = 1,
                     )
                     Column(
@@ -238,7 +237,7 @@ class MainActivity : ComponentActivity() {
                             text = statusString[batteryStatus]!!,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = cumulusBlue,
+                            color = cumulusColor().blue,
                             maxLines = 1
                         )
                         Text(
@@ -263,7 +262,7 @@ class MainActivity : ComponentActivity() {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     val switchColors = SwitchDefaults.colors(
-                        checkedThumbColor = cumulusPurple,
+                        checkedThumbColor = cumulusColor().purple,
                         checkedTrackColor = MaterialTheme.colorScheme.tertiary,
                         checkedBorderColor = MaterialTheme.colorScheme.outline,
                         uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
@@ -278,7 +277,7 @@ class MainActivity : ComponentActivity() {
                         text = "电流显示调整",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = cumulusPurple,
+                        color = cumulusColor().purple,
                         maxLines = 1
                     )
                     Row(
@@ -406,10 +405,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @Preview
     @Composable
     private fun BackgroundServiceHint() {
         AnimatedVisibility(visible = !backgroundServiceCreated) {
-            val buttonColor = cumulusYellow.copy(alpha = 0.5f)
+            val buttonColor = cumulusColor().yellow.copy(alpha = 0.5f)
             TextButton(
                 onClick = {
                     Toast.makeText(
@@ -459,7 +459,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun CurRecordBasicInfoBar() {
+    private fun BatteryBasicInfoBar() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -479,7 +479,7 @@ class MainActivity : ComponentActivity() {
                     .padding(start = 20.dp, end = 20.dp, top = 20.dp)
                     .height(120.dp)
                     .fillMaxWidth(),
-                lineColor = cumulusBlue
+                lineColor = cumulusColor().blue
             )
             Row(
                 modifier = Modifier
@@ -501,7 +501,7 @@ class MainActivity : ComponentActivity() {
                     text = DurationToText(screenOnDuration),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -517,7 +517,7 @@ class MainActivity : ComponentActivity() {
                     text = DurationToText(remainingUsageTime),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = cumulusBlue,
+                    color = cumulusColor().blue,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

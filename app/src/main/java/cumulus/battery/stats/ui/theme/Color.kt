@@ -1,10 +1,34 @@
 package cumulus.battery.stats.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Cumulus icon.
-val cumulusBlue = Color(0xFF1A71FC)
-val cumulusYellow = Color(0xFFBA8A5A)
-val cumulusPink = Color(0xFFAB4E83)
-val cumulusPurple = Color(0xFF5746A6)
-val cumulusDarkBlue = Color(0xFF2C2954)
+open class CumulusColor(
+    val blue: Color,
+    val yellow: Color,
+    val pink: Color,
+    val purple: Color
+)
+
+object CumulusLightColor : CumulusColor(
+    blue = Color(0xFF1A6AE6),
+    yellow = Color(0xFFD69400),
+    pink = Color(0xFF9A4675),
+    purple = Color(0xFF4F3E9C)
+)
+
+object CumulusDarkColor : CumulusColor(
+    blue = Color(0xFF3D8AFF),
+    yellow = Color(0xFFFFB81C),
+    pink = Color(0xFFC05F97),
+    purple = Color(0xFF6A5ACD)
+)
+
+@Composable
+fun cumulusColor(): CumulusColor {
+    return when {
+        isSystemInDarkTheme() -> CumulusDarkColor
+        else -> CumulusLightColor
+    }
+}
