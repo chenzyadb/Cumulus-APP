@@ -10,11 +10,9 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -116,6 +114,7 @@ class SettingsActivity : ComponentActivity() {
                             )
                             RequireIgnoreBatteryOptimizationButton()
                             DeleteHistoryDataButton()
+                            AdjustCurrentButton()
                             Text(
                                 modifier = Modifier
                                     .padding(start = 20.dp, top = 20.dp)
@@ -147,7 +146,10 @@ class SettingsActivity : ComponentActivity() {
     @Composable
     private fun RequireIgnoreBatteryOptimizationButton() {
         GoToButton(
-            modifier = Modifier.padding(top = 10.dp, start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .padding(top = 10.dp)
+                .fillMaxWidth()
+                .height(40.dp),
             text = "请求忽略电池优化"
         ) {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
@@ -159,7 +161,10 @@ class SettingsActivity : ComponentActivity() {
     @Composable
     private fun DeleteHistoryDataButton() {
         GoToButton(
-            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .fillMaxWidth()
+                .height(40.dp),
             text = "清除历史数据"
         ) {
             val builder = AlertDialog.Builder(this)
@@ -178,6 +183,21 @@ class SettingsActivity : ComponentActivity() {
             }
             val dialog = builder.create()
             dialog.show()
+        }
+    }
+
+    @Composable
+    private fun AdjustCurrentButton() {
+        GoToButton(
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .fillMaxWidth()
+                .height(40.dp),
+            text = "调整电流显示"
+        ) {
+            val intent =
+                Intent(applicationContext, CurrentAdjustActivity::class.java)
+            startActivity(intent)
         }
     }
 

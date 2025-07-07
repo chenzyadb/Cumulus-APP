@@ -38,7 +38,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,7 +46,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cumulus.battery.stats.widgets.SingleLineChart
 import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
@@ -56,7 +54,7 @@ import cumulus.battery.stats.utils.BattStatsRecordAnalysis
 import cumulus.battery.stats.utils.DurationToText
 import cumulus.battery.stats.utils.SimplifyDataPoints
 import cumulus.battery.stats.widgets.GoToButton
-import cumulus.battery.stats.widgets.Switch
+import cumulus.battery.stats.widgets.SingleLineChart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -130,6 +128,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             BatteryStatsBar()
                             BackgroundServiceHint()
+                            AdjustCurrentHint()
                             BatteryBasicInfoBar()
                             PowerConsumptionAnalysisButton()
                             ChargingProcessButton()
@@ -193,131 +192,50 @@ class MainActivity : ComponentActivity() {
             BatteryManager.BATTERY_STATUS_NOT_CHARGING to "未在充电",
             BatteryManager.BATTERY_STATUS_UNKNOWN to "未知状态"
         )
-        var showCurrentAdjustBar by remember { mutableStateOf(false) }
 
-        Column(
+        Row(
             modifier = Modifier
+                .height(80.dp)
                 .fillMaxWidth()
                 .background(
                     color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(10.dp)
                 ),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(
-                onClick = { showCurrentAdjustBar = !showCurrentAdjustBar },
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(0.dp),
+            Text(
+                modifier = Modifier.padding(start = 20.dp),
+                text = "${batteryCapacity}%",
+                fontSize = 40.sp,
+                fontWeight = FontWeight.Bold,
+                color = cumulusColor().blue,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Column(
                 modifier = Modifier
-                    .height(80.dp)
-                    .fillMaxWidth()
+                    .padding(start = 20.dp)
+                    .fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.Start
             ) {
-                Row(
-                    modifier = Modifier
-                        .padding(start = 20.dp)
-                        .fillMaxSize(),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "${batteryCapacity}%",
-                        fontSize = 40.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = cumulusColor().blue,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Column(
-                        modifier = Modifier
-                            .padding(start = 20.dp)
-                            .fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Text(
-                            text = statusString[batteryStatus]!!,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = cumulusColor().blue,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "${batteryPower} mW (${batteryCurrent} mA) ${batteryTemperature} °C",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.secondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-
-            AnimatedVisibility(visible = showCurrentAdjustBar) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp)
-                        .padding(start = 20.dp, end = 20.dp),
-                    verticalArrangement = Arrangement.Top,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        modifier = Modifier
-                            .padding(top = 5.dp, bottom = 5.dp)
-                            .height(20.dp)
-                            .fillMaxWidth(),
-                        text = "电流显示调整",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = cumulusColor().purple,
-                        maxLines = 1
-                    )
-
-                    var currentReverse by remember { mutableStateOf(BatteryStatsProvider.isCurrentReverse()) }
-                    Switch(
-                        modifier = Modifier
-                            .padding(top = 10.dp)
-                            .height(30.dp)
-                            .fillMaxWidth(),
-                        icon = AppCompatResources.getDrawable(applicationContext, R.drawable.current),
-                        text = "电流反转",
-                        state = currentReverse
-                    ) {
-                        BatteryStatsProvider.setCurrentReverse(!currentReverse)
-                        currentReverse = !currentReverse
-                    }
-
-                    var currentUnitUA by remember { mutableStateOf(BatteryStatsProvider.isCurrentUnitUA()) }
-                    Switch(
-                        modifier = Modifier
-                            .padding(top = 5.dp)
-                            .height(30.dp)
-                            .fillMaxWidth(),
-                        icon = AppCompatResources.getDrawable(applicationContext, R.drawable.swap),
-                        text = "uA-mA单位切换",
-                        state = currentUnitUA
-                    ) {
-                        BatteryStatsProvider.setCurrentUnitUA(!currentUnitUA)
-                        currentUnitUA = !currentUnitUA
-                    }
-
-                    var dualBattery by remember { mutableStateOf(BatteryStatsProvider.isDualBattery()) }
-                    Switch(
-                        modifier = Modifier
-                            .padding(top = 5.dp)
-                            .height(30.dp)
-                            .fillMaxWidth(),
-                        icon = AppCompatResources.getDrawable(applicationContext, R.drawable.device),
-                        text = "双电芯设备",
-                        state = dualBattery
-                    ) {
-                        BatteryStatsProvider.setDualBattery(!dualBattery)
-                        dualBattery = !dualBattery
-                    }
-                }
+                Text(
+                    text = statusString[batteryStatus]!!,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = cumulusColor().blue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${batteryPower} mW (${batteryCurrent} mA) ${batteryTemperature} °C",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
@@ -325,7 +243,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun BackgroundServiceHint() {
         AnimatedVisibility(visible = !backgroundServiceCreated) {
-            val buttonColor = cumulusColor().yellow.copy(alpha = 0.5f)
+            val buttonColor = cumulusColor().yellow
             TextButton(
                 onClick = {
                     Toast.makeText(
@@ -378,7 +296,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun AdjustCurrentHint() {
         AnimatedVisibility(visible = !currentAdjusted) {
-            val buttonColor = cumulusColor().yellow.copy(alpha = 0.5f)
+            val buttonColor = cumulusColor().yellow
             TextButton(
                 onClick = {
                     val intent =
@@ -494,7 +412,10 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun PowerConsumptionAnalysisButton() {
         GoToButton(
-            modifier = Modifier.padding(top = 10.dp, start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .padding(top = 10.dp)
+                .height(50.dp)
+                .fillMaxWidth(),
             icon = AppCompatResources.getDrawable(applicationContext, R.drawable.analysis),
             text = "耗电分析"
         ) {
@@ -507,7 +428,10 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun ChargingProcessButton() {
         GoToButton(
-            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .height(50.dp)
+                .fillMaxWidth(),
             icon = AppCompatResources.getDrawable(applicationContext, R.drawable.charging),
             text = "充电过程"
         ) {
@@ -519,7 +443,10 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun AdditionalFunctionButton() {
         GoToButton(
-            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .height(50.dp)
+                .fillMaxWidth(),
             icon = AppCompatResources.getDrawable(applicationContext, R.drawable.apps),
             text = "附加功能"
         ) {
@@ -531,7 +458,10 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun SettingsButton() {
         GoToButton(
-            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .height(50.dp)
+                .fillMaxWidth(),
             icon = AppCompatResources.getDrawable(applicationContext, R.drawable.settings),
             text = "设置"
         ) {

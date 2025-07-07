@@ -12,7 +12,6 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -118,7 +117,9 @@ class AdditionalFunctionActivity : ComponentActivity() {
     @Composable
     private fun StartFloatMonitorButton() {
         GoToButton(
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
             icon = AppCompatResources.getDrawable(applicationContext, R.drawable.monitor),
             text = "监视器悬浮窗"
         ) {
@@ -145,7 +146,10 @@ class AdditionalFunctionActivity : ComponentActivity() {
     @Composable
     private fun OpenBatteryUsageSettingButton() {
         GoToButton(
-            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .fillMaxWidth()
+                .height(50.dp),
             icon = AppCompatResources.getDrawable(applicationContext, R.drawable.app_settings),
             text = "电池使用状况"
         ) {

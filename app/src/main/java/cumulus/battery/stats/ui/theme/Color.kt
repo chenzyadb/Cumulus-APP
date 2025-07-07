@@ -13,14 +13,14 @@ open class CumulusColor(
 
 object CumulusLightColor : CumulusColor(
     blue = Color(0xFF1A6AE6),
-    yellow = Color(0xFFD69400),
+    yellow = Color(0xFFFFB000),
     pink = Color(0xFF9A4675),
     purple = Color(0xFF4F3E9C)
 )
 
 object CumulusDarkColor : CumulusColor(
     blue = Color(0xFF3D8AFF),
-    yellow = Color(0xFFFFB81C),
+    yellow = Color(0xFFFFA500),
     pink = Color(0xFFC05F97),
     purple = Color(0xFF6A5ACD)
 )

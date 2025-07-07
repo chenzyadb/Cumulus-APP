@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -27,8 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import cumulus.battery.stats.R
-import cumulus.battery.stats.objects.BatteryStatsProvider
-import cumulus.battery.stats.ui.theme.cumulusColor
 
 @Composable
 fun GoToButton(
@@ -49,8 +46,8 @@ fun GoToButton(
     ) {
         Row(
             modifier = Modifier
-                .height(50.dp)
-                .fillMaxWidth(),
+                .padding(start = 20.dp, end = 20.dp)
+                .fillMaxSize(),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -96,12 +93,12 @@ fun Switch(
     icon: Drawable? = null,
     text: String? = null,
     state: Boolean = false,
-    onClick: (() -> Unit)? = null
+    onStateChanged: ((Boolean) -> Unit)? = null
 ) {
     TextButton(
         onClick = {
-            if (onClick != null) {
-                onClick()
+            if (onStateChanged != null) {
+                onStateChanged(!state)
             }
         },
         shape = RoundedCornerShape(10.dp),
@@ -110,8 +107,8 @@ fun Switch(
     ) {
         Row(
             modifier = Modifier
-                .height(30.dp)
-                .fillMaxWidth(),
+                .padding(start = 20.dp, end = 20.dp)
+                .fillMaxSize(),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -120,9 +117,9 @@ fun Switch(
                     bitmap = icon.toBitmap().asImageBitmap(),
                     contentDescription = null,
                     modifier = Modifier
-                        .padding(end = 10.dp)
-                        .height(24.dp)
-                        .width(24.dp)
+                        .padding(end = 20.dp)
+                        .height(28.dp)
+                        .width(28.dp)
                 )
             }
             if (text != null) {
@@ -148,12 +145,14 @@ fun Switch(
                     uncheckedBorderColor = MaterialTheme.colorScheme.outline
                 )
                 Switch(
-                    modifier = Modifier
-                        .height(20.dp)
-                        .scale(0.75f),
+                    modifier = Modifier.scale(0.8f),
                     colors = switchColors,
                     checked = state,
-                    onCheckedChange = {}
+                    onCheckedChange = {
+                        if (onStateChanged != null) {
+                            onStateChanged(it)
+                        }
+                    }
                 )
             }
         }

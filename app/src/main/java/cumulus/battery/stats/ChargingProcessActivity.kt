@@ -37,8 +37,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cumulus.battery.stats.widgets.MultiLineChart
-import cumulus.battery.stats.widgets.SingleLineChart
 import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
@@ -47,6 +45,8 @@ import cumulus.battery.stats.utils.BattStatsRecordAnalysis
 import cumulus.battery.stats.utils.BatteryHealthReport
 import cumulus.battery.stats.utils.DurationToText
 import cumulus.battery.stats.utils.SimplifyDataPoints
+import cumulus.battery.stats.widgets.MultiLineChart
+import cumulus.battery.stats.widgets.SingleLineChart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
