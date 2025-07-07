@@ -37,8 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cumulus.battery.stats.charts.MultiLineChart
-import cumulus.battery.stats.charts.SingleLineChart
+import cumulus.battery.stats.widgets.MultiLineChart
+import cumulus.battery.stats.widgets.SingleLineChart
 import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme

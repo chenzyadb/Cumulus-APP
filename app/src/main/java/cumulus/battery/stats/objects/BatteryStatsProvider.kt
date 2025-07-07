@@ -102,6 +102,12 @@ object BatteryStatsProvider {
         }
     }
 
+    fun setCurrentAdjusted(currentAdjusted: Boolean) {
+        sharedPreferences?.edit {
+            putBoolean("currentAdjusted", currentAdjusted)
+        }
+    }
+
     fun isDualBattery(): Boolean {
         if (sharedPreferences != null) {
             return sharedPreferences!!.getBoolean("dualBattery", false)
@@ -119,6 +125,13 @@ object BatteryStatsProvider {
     fun isCurrentReverse(): Boolean {
         if (sharedPreferences != null) {
             return sharedPreferences!!.getBoolean("currentReverse", false)
+        }
+        return false
+    }
+
+    fun isCurrentAdjusted(): Boolean {
+        if (sharedPreferences != null) {
+            return sharedPreferences!!.getBoolean("currentAdjusted", false)
         }
         return false
     }

@@ -49,6 +49,12 @@
             android:label="附加功能"
             android:theme="@style/Theme.Cumulus" />
 
+        <activity
+            android:name=".CurrentAdjustActivity"
+            android:exported="false"
+            android:label="电流调整"
+            android:theme="@style/Theme.Cumulus" />
+
         <service
             android:name=".BackgroundService"
             android:enabled="true"

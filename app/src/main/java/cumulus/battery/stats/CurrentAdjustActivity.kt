@@ -1,18 +1,12 @@
 package cumulus.battery.stats
 
-import android.content.Intent
 import android.content.res.Resources
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,26 +16,34 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.ui.theme.CumulusTheme
-import cumulus.battery.stats.widgets.GoToButton
+import cumulus.battery.stats.ui.theme.cumulusColor
+import java.util.Timer
+import java.util.TimerTask
 
-class AdditionalFunctionActivity : ComponentActivity() {
-    @OptIn(ExperimentalMaterial3Api::class)
+class CurrentAdjustActivity : ComponentActivity() {
+    private var timer: Timer? = null
+    private var batteryCurrent by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        BatteryStatsProvider.setCurrentAdjusted(true)
         setContent {
             CumulusTheme {
                 Surface(
@@ -77,7 +79,7 @@ class AdditionalFunctionActivity : ComponentActivity() {
                                 Text(
                                     modifier = Modifier
                                         .padding(start = 10.dp),
-                                    text = "附加功能",
+                                    text = "电流调整",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
@@ -98,8 +100,7 @@ class AdditionalFunctionActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.Top,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            StartFloatMonitorButton()
-                            OpenBatteryUsageSettingButton()
+                            BatteryCurrentBar()
                         }
                     }
                 }
@@ -115,42 +116,44 @@ class AdditionalFunctionActivity : ComponentActivity() {
         }
     }
 
-    @Composable
-    private fun StartFloatMonitorButton() {
-        GoToButton(
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp),
-            icon = AppCompatResources.getDrawable(applicationContext, R.drawable.monitor),
-            text = "监视器悬浮窗"
-        ) {
-            if (FloatMonitorService.isServiceCreated()) {
-                val intent = Intent(applicationContext, FloatMonitorService::class.java)
-                stopService(intent)
-            } else {
-                if (!Settings.canDrawOverlays(this)) {
-                    Toast.makeText(applicationContext, "请授权悬浮窗权限", Toast.LENGTH_LONG)
-                        .show()
-                    val intent = Intent()
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    intent.action = "android.settings.APPLICATION_DETAILS_SETTINGS"
-                    intent.data = Uri.fromParts("package", packageName, null)
-                    startActivity(intent)
-                } else {
-                    val intent = Intent(applicationContext, FloatMonitorService::class.java)
-                    startService(intent)
-                }
-            }
-        }
+    override fun onStart() {
+        super.onStart()
+        startTimer()
+    }
+
+    override fun onStop() {
+        stopTimer()
+        super.onStop()
     }
 
     @Composable
-    private fun OpenBatteryUsageSettingButton() {
-        GoToButton(
-            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
-            icon = AppCompatResources.getDrawable(applicationContext, R.drawable.app_settings),
-            text = "电池使用状况"
-        ) {
-            val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY)
-            startActivity(intent)
+    private fun BatteryCurrentBar() {
+        Text(
+            text = "${batteryCurrent} mA",
+            fontSize = 40.sp,
+            fontWeight = FontWeight.Bold,
+            color = cumulusColor().blue,
+            maxLines = 1,
+        )
+    }
+
+    private fun startTimer() {
+        if (timer != null) {
+            return
         }
+        timer = Timer()
+        timer!!.schedule(object : TimerTask() {
+            override fun run() {
+                batteryCurrent = BatteryStatsProvider.getBatteryCurrent(applicationContext)
+            }
+        }, 0, 1000)
+    }
+
+    private fun stopTimer() {
+        if (timer == null) {
+            return
+        }
+        timer!!.cancel()
+        timer = null
     }
 }

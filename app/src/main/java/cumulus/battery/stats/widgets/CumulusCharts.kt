@@ -1,4 +1,4 @@
-package cumulus.battery.stats.charts
+package cumulus.battery.stats.widgets
 
 import android.graphics.Paint
 import android.graphics.Path

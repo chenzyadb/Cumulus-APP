@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,7 @@ import androidx.core.net.toUri
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusColor
+import cumulus.battery.stats.widgets.GoToButton
 
 class SettingsActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -144,90 +146,38 @@ class SettingsActivity : ComponentActivity() {
     @SuppressLint("BatteryLife")
     @Composable
     private fun RequireIgnoreBatteryOptimizationButton() {
-        TextButton(
-            onClick = {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                intent.data = ("package:" + applicationContext.packageName).toUri()
-                startActivity(intent)
-            },
-            shape = RoundedCornerShape(10.dp),
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier
-                .padding(top = 10.dp)
-                .height(50.dp)
-                .fillMaxWidth()
+        GoToButton(
+            modifier = Modifier.padding(top = 10.dp, start = 20.dp, end = 20.dp),
+            text = "请求忽略电池优化"
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "请求忽略电池优化",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.arrow_forward),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(16.dp)
-                            .width(16.dp)
-                    )
-                }
-            }
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            intent.data = ("package:" + applicationContext.packageName).toUri()
+            startActivity(intent)
         }
     }
 
     @Composable
     private fun DeleteHistoryDataButton() {
-        TextButton(
-            onClick = {
-                deleteHistoryData()
-            },
-            shape = RoundedCornerShape(10.dp),
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier
-                .height(50.dp)
-                .fillMaxWidth()
+        GoToButton(
+            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
+            text = "清除历史数据"
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "清除历史数据",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.arrow_forward),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(16.dp)
-                            .width(16.dp)
-                    )
-                }
+            val builder = AlertDialog.Builder(this)
+            builder.setTitle("警告")
+            builder.setMessage("清除数据操作不可逆")
+            builder.setPositiveButton("继续") { _, _ ->
+                BatteryStatsRecorder.deleteHistoryData()
+                Toast.makeText(
+                    applicationContext,
+                    "历史数据已清除",
+                    Toast.LENGTH_LONG
+                ).show()
             }
+            builder.setNegativeButton("取消") { _, _ ->
+                Toast.makeText(applicationContext, "已取消操作", Toast.LENGTH_LONG).show()
+            }
+            val dialog = builder.create()
+            dialog.show()
         }
     }
 
@@ -284,24 +234,5 @@ class SettingsActivity : ComponentActivity() {
                 maxLines = 1
             )
         }
-    }
-
-    private fun deleteHistoryData() {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("警告")
-        builder.setMessage("清除数据操作不可逆")
-        builder.setPositiveButton("继续") { _, _ ->
-            BatteryStatsRecorder.deleteHistoryData()
-            Toast.makeText(
-                applicationContext,
-                "历史数据已清除",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-        builder.setNegativeButton("取消") { _, _ ->
-            Toast.makeText(applicationContext, "已取消操作", Toast.LENGTH_LONG).show()
-        }
-        val dialog = builder.create()
-        dialog.show()
     }
 }

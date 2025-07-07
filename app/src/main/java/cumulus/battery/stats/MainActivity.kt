@@ -11,6 +11,7 @@ import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,8 +31,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,10 +45,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cumulus.battery.stats.charts.SingleLineChart
+import cumulus.battery.stats.widgets.SingleLineChart
 import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
@@ -57,6 +55,8 @@ import cumulus.battery.stats.ui.theme.cumulusColor
 import cumulus.battery.stats.utils.BattStatsRecordAnalysis
 import cumulus.battery.stats.utils.DurationToText
 import cumulus.battery.stats.utils.SimplifyDataPoints
+import cumulus.battery.stats.widgets.GoToButton
+import cumulus.battery.stats.widgets.Switch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -64,8 +64,9 @@ import java.util.Timer
 import java.util.TimerTask
 
 class MainActivity : ComponentActivity() {
-    private var refreshTimer: Timer? = null
+    private var timer: Timer? = null
     private var backgroundServiceCreated by mutableStateOf(false)
+    private var currentAdjusted by mutableStateOf(false)
     private var batteryCapacity: Int by mutableIntStateOf(0)
     private var batteryCurrent: Int by mutableIntStateOf(0)
     private var batteryPower: Int by mutableIntStateOf(0)
@@ -151,12 +152,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        startRefreshTimer()
+        startTimer()
         updateRecordAnalysis()
     }
 
     override fun onStop() {
-        stopRefreshTimer()
+        stopTimer()
         super.onStop()
     }
 
@@ -225,6 +226,7 @@ class MainActivity : ComponentActivity() {
                         fontWeight = FontWeight.Bold,
                         color = cumulusColor().blue,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Column(
                         modifier = Modifier
@@ -238,14 +240,16 @@ class MainActivity : ComponentActivity() {
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = cumulusColor().blue,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = "${batteryPower} mW (${batteryCurrent} mA) ${batteryTemperature} °C",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.secondary,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -255,20 +259,11 @@ class MainActivity : ComponentActivity() {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(160.dp)
-                        .padding(start = 20.dp, end = 20.dp)
-                        .verticalScroll(rememberScrollState()),
+                        .height(150.dp)
+                        .padding(start = 20.dp, end = 20.dp),
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val switchColors = SwitchDefaults.colors(
-                        checkedThumbColor = cumulusColor().purple,
-                        checkedTrackColor = MaterialTheme.colorScheme.tertiary,
-                        checkedBorderColor = MaterialTheme.colorScheme.outline,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.secondary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surface,
-                        uncheckedBorderColor = MaterialTheme.colorScheme.outline
-                    )
                     Text(
                         modifier = Modifier
                             .padding(top = 5.dp, bottom = 5.dp)
@@ -280,132 +275,53 @@ class MainActivity : ComponentActivity() {
                         color = cumulusColor().purple,
                         maxLines = 1
                     )
-                    Row(
+
+                    var currentReverse by remember { mutableStateOf(BatteryStatsProvider.isCurrentReverse()) }
+                    Switch(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(40.dp),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(top = 10.dp)
+                            .height(30.dp)
+                            .fillMaxWidth(),
+                        icon = AppCompatResources.getDrawable(applicationContext, R.drawable.current),
+                        text = "电流反转",
+                        state = currentReverse
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.current),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .height(24.dp)
-                                .width(24.dp)
-                        )
-                        Text(
-                            modifier = Modifier.padding(start = 5.dp),
-                            text = "电流反转",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            var currentReverse by remember { mutableStateOf(BatteryStatsProvider.isCurrentReverse()) }
-                            Switch(
-                                modifier = Modifier
-                                    .height(20.dp),
-                                colors = switchColors,
-                                checked = currentReverse,
-                                onCheckedChange = {
-                                    currentReverse = it
-                                    BatteryStatsProvider.setCurrentReverse(currentReverse)
-                                }
-                            )
-                        }
+                        BatteryStatsProvider.setCurrentReverse(!currentReverse)
+                        currentReverse = !currentReverse
                     }
-                    Row(
+
+                    var currentUnitUA by remember { mutableStateOf(BatteryStatsProvider.isCurrentUnitUA()) }
+                    Switch(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(40.dp),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(top = 5.dp)
+                            .height(30.dp)
+                            .fillMaxWidth(),
+                        icon = AppCompatResources.getDrawable(applicationContext, R.drawable.swap),
+                        text = "uA-mA单位切换",
+                        state = currentUnitUA
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.swap),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .height(24.dp)
-                                .width(24.dp)
-                        )
-                        Text(
-                            modifier = Modifier.padding(start = 5.dp),
-                            text = "uA-mA单位切换",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            var currentUnitUA by remember { mutableStateOf(BatteryStatsProvider.isCurrentUnitUA()) }
-                            Switch(
-                                modifier = Modifier
-                                    .height(20.dp),
-                                colors = switchColors,
-                                checked = currentUnitUA,
-                                onCheckedChange = {
-                                    currentUnitUA = it
-                                    BatteryStatsProvider.setCurrentUnitUA(currentUnitUA)
-                                }
-                            )
-                        }
+                        BatteryStatsProvider.setCurrentUnitUA(!currentUnitUA)
+                        currentUnitUA = !currentUnitUA
                     }
-                    Row(
+
+                    var dualBattery by remember { mutableStateOf(BatteryStatsProvider.isDualBattery()) }
+                    Switch(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(40.dp),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(top = 5.dp)
+                            .height(30.dp)
+                            .fillMaxWidth(),
+                        icon = AppCompatResources.getDrawable(applicationContext, R.drawable.device),
+                        text = "双电芯设备",
+                        state = dualBattery
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.device),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .height(24.dp)
-                                .width(24.dp)
-                        )
-                        Text(
-                            modifier = Modifier.padding(start = 5.dp),
-                            text = "双电芯设备",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            var dualBattery by remember { mutableStateOf(BatteryStatsProvider.isDualBattery()) }
-                            Switch(
-                                modifier = Modifier
-                                    .height(20.dp),
-                                colors = switchColors,
-                                checked = dualBattery,
-                                onCheckedChange = {
-                                    dualBattery = it
-                                    BatteryStatsProvider.setDualBattery(dualBattery)
-                                }
-                            )
-                        }
+                        BatteryStatsProvider.setDualBattery(!dualBattery)
+                        dualBattery = !dualBattery
                     }
                 }
             }
         }
     }
 
-    @Preview
     @Composable
     private fun BackgroundServiceHint() {
         AnimatedVisibility(visible = !backgroundServiceCreated) {
@@ -451,7 +367,57 @@ class MainActivity : ComponentActivity() {
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun AdjustCurrentHint() {
+        AnimatedVisibility(visible = !currentAdjusted) {
+            val buttonColor = cumulusColor().yellow.copy(alpha = 0.5f)
+            TextButton(
+                onClick = {
+                    val intent =
+                        Intent(applicationContext, CurrentAdjustActivity::class.java)
+                    startActivity(intent)
+                },
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier
+                    .padding(top = 10.dp)
+                    .height(50.dp)
+                    .fillMaxWidth()
+                    .background(
+                        color = buttonColor,
+                        shape = RoundedCornerShape(10.dp)
+                    ),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 20.dp, end = 20.dp),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.warning),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .height(24.dp)
+                            .width(24.dp)
+                    )
+                    Text(
+                        modifier = Modifier.padding(start = 5.dp),
+                        text = "请确保电流值显示正确, 点击此处调整",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -527,214 +493,50 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun PowerConsumptionAnalysisButton() {
-        TextButton(
-            onClick = {
-                val intent =
-                    Intent(applicationContext, PowerConsumptionAnalysisActivity::class.java)
-                startActivity(intent)
-            },
-            shape = RoundedCornerShape(10.dp),
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier
-                .padding(top = 10.dp)
-                .height(50.dp)
-                .fillMaxWidth()
+        GoToButton(
+            modifier = Modifier.padding(top = 10.dp, start = 20.dp, end = 20.dp),
+            icon = AppCompatResources.getDrawable(applicationContext, R.drawable.analysis),
+            text = "耗电分析"
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.analysis),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .height(28.dp)
-                        .width(28.dp)
-                )
-                Text(
-                    modifier = Modifier.padding(start = 20.dp),
-                    text = "耗电分析",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.arrow_forward),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(16.dp)
-                            .width(16.dp)
-                    )
-                }
-            }
+            val intent =
+                Intent(applicationContext, PowerConsumptionAnalysisActivity::class.java)
+            startActivity(intent)
         }
     }
 
     @Composable
     private fun ChargingProcessButton() {
-        TextButton(
-            onClick = {
-                val intent = Intent(applicationContext, ChargingProcessActivity::class.java)
-                startActivity(intent)
-            },
-            shape = RoundedCornerShape(10.dp),
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier
-                .padding(top = 5.dp)
-                .height(50.dp)
-                .fillMaxWidth()
+        GoToButton(
+            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
+            icon = AppCompatResources.getDrawable(applicationContext, R.drawable.charging),
+            text = "充电过程"
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.charging),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .height(28.dp)
-                        .width(28.dp)
-                )
-                Text(
-                    modifier = Modifier.padding(start = 20.dp),
-                    text = "充电过程",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.arrow_forward),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(16.dp)
-                            .width(16.dp)
-                    )
-                }
-            }
+            val intent = Intent(applicationContext, ChargingProcessActivity::class.java)
+            startActivity(intent)
         }
     }
 
     @Composable
     private fun AdditionalFunctionButton() {
-        TextButton(
-            onClick = {
-                val intent = Intent(applicationContext, AdditionalFunctionActivity::class.java)
-                startActivity(intent)
-            },
-            shape = RoundedCornerShape(10.dp),
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier
-                .padding(top = 5.dp)
-                .height(50.dp)
-                .fillMaxWidth()
+        GoToButton(
+            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
+            icon = AppCompatResources.getDrawable(applicationContext, R.drawable.apps),
+            text = "附加功能"
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.apps),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .height(28.dp)
-                        .width(28.dp)
-                )
-                Text(
-                    modifier = Modifier.padding(start = 20.dp),
-                    text = "附加功能",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.arrow_forward),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(16.dp)
-                            .width(16.dp)
-                    )
-                }
-            }
+            val intent = Intent(applicationContext, AdditionalFunctionActivity::class.java)
+            startActivity(intent)
         }
     }
 
     @Composable
     private fun SettingsButton() {
-        TextButton(
-            onClick = {
-                val intent = Intent(applicationContext, SettingsActivity::class.java)
-                startActivity(intent)
-            },
-            shape = RoundedCornerShape(10.dp),
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier
-                .padding(top = 5.dp)
-                .height(50.dp)
-                .fillMaxWidth()
+        GoToButton(
+            modifier = Modifier.padding(top = 5.dp, start = 20.dp, end = 20.dp),
+            icon = AppCompatResources.getDrawable(applicationContext, R.drawable.settings),
+            text = "设置"
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.settings),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .height(28.dp)
-                        .width(28.dp)
-                )
-                Text(
-                    modifier = Modifier.padding(start = 20.dp),
-                    text = "设置",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.arrow_forward),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(16.dp)
-                            .width(16.dp)
-                    )
-                }
-            }
+            val intent = Intent(applicationContext, SettingsActivity::class.java)
+            startActivity(intent)
         }
     }
 
@@ -750,6 +552,7 @@ class MainActivity : ComponentActivity() {
 
     private fun updateBatteryStats() {
         backgroundServiceCreated = BackgroundService.isServiceCreated()
+        currentAdjusted = BatteryStatsProvider.isCurrentAdjusted()
         batteryCapacity = BatteryStatsProvider.getBatteryCapacity(applicationContext)
         batteryCurrent = BatteryStatsProvider.getBatteryCurrent(applicationContext)
         batteryPower =
@@ -758,23 +561,23 @@ class MainActivity : ComponentActivity() {
         batteryStatus = BatteryStatsProvider.getBatteryStatus(applicationContext)
     }
 
-    private fun startRefreshTimer() {
-        if (refreshTimer != null) {
+    private fun startTimer() {
+        if (timer != null) {
             return
         }
-        refreshTimer = Timer()
-        refreshTimer!!.schedule(object : TimerTask() {
+        timer = Timer()
+        timer!!.schedule(object : TimerTask() {
             override fun run() {
                 updateBatteryStats()
             }
         }, 0, 1000)
     }
 
-    private fun stopRefreshTimer() {
-        if (refreshTimer == null) {
+    private fun stopTimer() {
+        if (timer == null) {
             return
         }
-        refreshTimer!!.cancel()
-        refreshTimer = null
+        timer!!.cancel()
+        timer = null
     }
 }

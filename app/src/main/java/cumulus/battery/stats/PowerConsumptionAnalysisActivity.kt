@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
-import cumulus.battery.stats.charts.MultiLineChart
+import cumulus.battery.stats.widgets.MultiLineChart
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusColor
