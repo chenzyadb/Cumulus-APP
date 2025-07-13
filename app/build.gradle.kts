@@ -13,8 +13,8 @@ android {
         applicationId = "cumulus.battery.stats"
         minSdk = 28
         targetSdk = 34
-        versionCode = 100050
-        versionName = "1.0.5"
+        versionCode = 100060
+        versionName = "1.0.6"
 
         vectorDrawables {
             useSupportLibrary = true

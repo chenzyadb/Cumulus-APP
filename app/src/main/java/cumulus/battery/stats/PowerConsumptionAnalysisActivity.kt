@@ -6,7 +6,6 @@ import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -23,7 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -38,22 +36,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
-import androidx.core.graphics.drawable.toDrawable
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusColor
-import cumulus.battery.stats.utils.BattStatsRecordAnalysis
+import cumulus.battery.stats.utils.BatteryStatsRecordAnalysis
+import cumulus.battery.stats.utils.BatteryStatsReport
 import cumulus.battery.stats.utils.DurationToText
-import cumulus.battery.stats.utils.SimplifyDataPoints
 import cumulus.battery.stats.widgets.MultiLineChart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,11 +61,8 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
     private var screenOffAveragePower: Int by mutableIntStateOf(0)
     private var screenOnDuration: Long by mutableLongStateOf(0)
     private var screenOffDuration: Long by mutableLongStateOf(0)
-    private var perappPowerList: Map<String, List<Int>> by mutableStateOf(mapOf())
-    private var perappTemperatureList: Map<String, List<Int>> by mutableStateOf(mapOf())
-    private var perappUsedTime: Map<String, Long> by mutableStateOf(mapOf())
+    private var perappBatteryStatsReport: Map<String, BatteryStatsReport> by mutableStateOf(mapOf())
 
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -333,27 +325,17 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            for ((pkgName, usedTime) in perappUsedTime) {
-                if (!pkgName.equals("standby") && !pkgName.equals("other") && usedTime > 0) {
-                    AppDetailsBar(pkgName)
-                }
+            for ((pkgName, batteryStatsReport) in perappBatteryStatsReport) {
+                AppDetailsBar(pkgName, batteryStatsReport)
             }
         }
     }
 
     @Composable
-    private fun AppDetailsBar(pkgName: String) {
-        val usedTime = perappUsedTime[pkgName]
-        val appPowerList = perappPowerList[pkgName]
-        val appTemperatureList = perappTemperatureList[pkgName]
-        if (usedTime != null && !appPowerList.isNullOrEmpty() && !appTemperatureList.isNullOrEmpty()) {
-            val maxPower = appPowerList.max()
-            val averagePower = appPowerList.average().toInt()
-            val maxTemperature = appTemperatureList.max()
-            val averageTemperarure = appTemperatureList.average().toInt()
-            val usedPercentage = (averagePower.toDouble() * usedTime) /
-                    (screenOnAveragePower * screenOnDuration) * screenOnUsedPercentage
-
+    private fun AppDetailsBar(pkgName: String, batteryStatsReport: BatteryStatsReport) {
+        val appIcon = getAppIcon(pkgName)?.toBitmap()?.asImageBitmap()
+        val appName = getAppName(pkgName)
+        if (appIcon != null && appName != null) {
             Column(
                 modifier = Modifier
                     .padding(top = 10.dp)
@@ -381,12 +363,8 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        var appIcon = getAppIcon(pkgName)
-                        if (appIcon == null) {
-                            appIcon = getUnknownAppIcon()
-                        }
                         Image(
-                            bitmap = appIcon.toBitmap().asImageBitmap(),
+                            bitmap = appIcon,
                             contentDescription = null,
                             modifier = Modifier
                                 .height(40.dp)
@@ -401,7 +379,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                             horizontalAlignment = Alignment.Start
                         ) {
                             Text(
-                                text = getAppName(pkgName),
+                                text = appName,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -424,7 +402,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = DurationToText(usedTime),
+                                    text = DurationToText(batteryStatsReport.duration),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = cumulusColor().blue,
@@ -440,6 +418,9 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val usedPercentage = (batteryStatsReport.averagePower.toDouble() *
+                                    batteryStatsReport.duration) / (screenOnAveragePower * screenOnDuration) *
+                                    screenOnUsedPercentage
                             var usedPercentageText = "<1%"
                             if (usedPercentage >= 1.0) {
                                 usedPercentageText = usedPercentage.toInt().toString() + "%"
@@ -464,16 +445,12 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        val line0DataArray =
-                            appPowerList.map { it / 1000 }.toTypedArray().toIntArray()
                         MultiLineChart(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp),
-                            line0DataArray = SimplifyDataPoints(line0DataArray),
-                            line1DataArray = SimplifyDataPoints(appTemperatureList.toIntArray()),
-                            tick0Max = (maxPower / 1000 / 10 + 1) * 10,
-                            tick1Max = (maxTemperature / 10 + 1) * 10,
+                            dataPointList0 = batteryStatsReport.powerDataPoints,
+                            dataPointList1 = batteryStatsReport.temperatureDataPoints,
                             line0Color = cumulusColor().blue,
                             line1Color = cumulusColor().pink,
                             line0Title = "功率(W)",
@@ -496,7 +473,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = maxPower.toString(),
+                                text = batteryStatsReport.maxPower.toString(),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = cumulusColor().blue,
@@ -512,7 +489,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = averagePower.toString(),
+                                text = batteryStatsReport.averagePower.toString(),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = cumulusColor().blue,
@@ -545,7 +522,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = maxTemperature.toString(),
+                                text = batteryStatsReport.maxTemperature.toString(),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = cumulusColor().blue,
@@ -561,7 +538,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = averageTemperarure.toString(),
+                                text = batteryStatsReport.averageTemperature.toString(),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = cumulusColor().blue,
@@ -586,20 +563,18 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
     private fun updateRecordAnalysis() {
         CoroutineScope(Dispatchers.Default).launch {
             val records = BatteryStatsRecorder.getRecords()
-            val recordAnalysis = BattStatsRecordAnalysis(records)
+            val recordAnalysis = BatteryStatsRecordAnalysis(records)
             screenOnUsedPercentage = recordAnalysis.getScreenOnUsedPercentage()
             screenOffUsedPercentage = recordAnalysis.getScreenOffUsedPercentage()
             screenOnAveragePower = recordAnalysis.getScreenOnAveragePower()
             screenOffAveragePower = recordAnalysis.getScreenOffAveragePower()
             screenOnDuration = recordAnalysis.getScreenOnDuration()
             screenOffDuration = recordAnalysis.getScreenOffDuration()
-            perappPowerList = recordAnalysis.getPerappPowerList()
-            perappTemperatureList = recordAnalysis.getPerappTemperatureList()
-            perappUsedTime = recordAnalysis.getPerappUsedTime()
+            perappBatteryStatsReport = recordAnalysis.getPerappBatteryStatsReport()
         }
     }
 
-    private fun getAppName(pkgName: String): String {
+    private fun getAppName(pkgName: String): String? {
         try {
             val appInfo =
                 packageManager.getApplicationInfo(pkgName, PackageManager.GET_META_DATA)
@@ -607,7 +582,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return "unknown"
+        return null
     }
 
     private fun getAppIcon(pkgName: String): Drawable? {
@@ -619,13 +594,5 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
             e.printStackTrace()
         }
         return null
-    }
-
-    private fun getUnknownAppIcon(): Drawable {
-        val icon = AppCompatResources.getDrawable(applicationContext, R.drawable.icon_app_unknown)
-        if (icon != null) {
-            return icon
-        }
-        return Color.White.toArgb().toDrawable()
     }
 }

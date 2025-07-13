@@ -6,5 +6,5 @@
     android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
     android:description="@string/describe"
-    android:notificationTimeout="500"
+    android:notificationTimeout="5000"
     android:settingsActivity="cumulus.battery.stats.MainActivity" />

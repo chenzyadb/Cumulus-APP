@@ -1,6 +1,9 @@
 package cumulus.battery.stats.utils
 
 import android.os.BatteryManager
+import cumulus.battery.stats.widgets.DataPointList
+import cumulus.battery.stats.widgets.DataPointMutableList
+import kotlin.math.abs
 
 data class BatteryHealthReport(
     var sampleSize: Int = 0,
@@ -9,9 +12,21 @@ data class BatteryHealthReport(
     var estimatingCapacity: Int = 0
 )
 
-class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
-    val dischargingRecords = getLastDischargingRecords()
-    val chargingRecords = getLastChargingRecords()
+data class BatteryStatsReport(
+    var duration: Long = 0L,
+    var percentageDifference: Int = 0,
+    var averagePower: Int = 0,
+    var maxPower: Int = 0,
+    var averageTemperature: Int = 0,
+    var maxTemperature: Int = 0,
+    var percentageDataPoints: DataPointList = listOf(),
+    var powerDataPoints: DataPointList = listOf(),
+    var temperatureDataPoints: DataPointList = listOf()
+)
+
+class BatteryStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
+    private val dischargingRecords = getLastDischargingRecords()
+    private val chargingRecords = getLastChargingRecords()
 
     private fun getLastChargingRecords(): List<BatteryStatsItem> {
         if (records.isNotEmpty()) {
@@ -69,18 +84,77 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
         return listOf()
     }
 
-    fun getUsagePercentageList(): List<Int> {
-        if (records.isNotEmpty()) {
+    private fun generateBatteryStatsReport(records: List<BatteryStatsItem>): BatteryStatsReport? {
+        if (records.size > 10) {
+            val statsReport = BatteryStatsReport()
+
+            val timestampList: MutableList<Long> = mutableListOf()
             val percentageList: MutableList<Int> = mutableListOf()
+            val powerList: MutableList<Int> = mutableListOf()
+            val temperatureList: MutableList<Int> = mutableListOf()
+            for (item in records) {
+                timestampList.add(item.timestamp)
+                percentageList.add(item.batteryPercentage)
+                if (item.batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING) {
+                    powerList.add(when {
+                        (item.batteryPower > 0) -> item.batteryPower
+                        else -> 0
+                    })
+                } else {
+                    powerList.add(when {
+                        (item.batteryPower < 0) -> -item.batteryPower
+                        else -> 0
+                    })
+                }
+                temperatureList.add(item.batteryTemperature)
+            }
+
+            statsReport.percentageDifference = percentageList.max() - percentageList.min()
+            statsReport.averagePower = powerList.average().toInt()
+            statsReport.maxPower = powerList.max()
+            statsReport.averageTemperature = temperatureList.average().toInt()
+            statsReport.maxTemperature = temperatureList.max()
+
+            val percentageDataPoints: DataPointMutableList = mutableListOf()
+            val powerDataPoints: DataPointMutableList = mutableListOf()
+            val temperatureDataPoints: DataPointMutableList = mutableListOf()
+            var durationSinceStart = 0U
+            for (i in 1 until timestampList.size) {
+                val duration = (timestampList[i] - timestampList[i - 1]).toUInt()
+                if (duration < 5U) {
+                    durationSinceStart += duration
+                    percentageDataPoints.add(Pair(durationSinceStart, percentageList[i].toUInt()))
+                    powerDataPoints.add(Pair(durationSinceStart, (powerList[i] / 1000).toUInt()))
+                    temperatureDataPoints.add(Pair(durationSinceStart, temperatureList[i].toUInt()))
+                }
+            }
+            statsReport.duration = durationSinceStart.toLong()
+            statsReport.percentageDataPoints = percentageDataPoints
+            statsReport.powerDataPoints = powerDataPoints
+            statsReport.temperatureDataPoints = temperatureDataPoints
+
+            return statsReport
+        }
+        return null
+    }
+
+    fun getUsagePercentageDataPoints(): DataPointList {
+        if (records.isNotEmpty()) {
+            val percentageDataPoints: DataPointMutableList = mutableListOf()
             val minTimestamp = GetTimeStamp() - 24L * 3600L
             for (i in records.lastIndex downTo 0) {
                 if (records[i].timestamp > minTimestamp) {
-                    percentageList.add(records[i].batteryPercentage)
+                    percentageDataPoints.add(
+                        Pair(
+                            (records[i].timestamp - minTimestamp).toUInt(),
+                            records[i].batteryPercentage.toUInt()
+                        )
+                    )
                 } else {
                     break
                 }
             }
-            return percentageList.reversed()
+            return percentageDataPoints.reversed()
         }
         return listOf()
     }
@@ -89,7 +163,7 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
         if (dischargingRecords.isNotEmpty()) {
             var duration = 0L
             for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                if (!dischargingRecords[i].packageName.equals("standby")) {
+                if (dischargingRecords[i].packageName != "standby") {
                     duration += dischargingRecords[i + 1].timestamp - dischargingRecords[i].timestamp
                 }
             }
@@ -103,7 +177,7 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
             var averagePower = 0.0
             var recordNum = 0
             for (i in dischargingRecords.lastIndex downTo 0) {
-                if (!dischargingRecords[i].packageName.equals("standby") &&
+                if (dischargingRecords[i].packageName != "standby" &&
                     dischargingRecords[i].batteryPower < 0
                 ) {
                     averagePower =
@@ -120,7 +194,7 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
         if (dischargingRecords.isNotEmpty()) {
             var percentage = 0
             for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                if (!dischargingRecords[i].packageName.equals("standby")) {
+                if (dischargingRecords[i].packageName != "standby") {
                     percentage +=
                         dischargingRecords[i].batteryPercentage - dischargingRecords[i + 1].batteryPercentage
                 }
@@ -134,7 +208,7 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
         if (dischargingRecords.isNotEmpty()) {
             var duration = 0L
             for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                if (dischargingRecords[i].packageName.equals("standby")) {
+                if (dischargingRecords[i].packageName == "standby") {
                     duration += dischargingRecords[i + 1].timestamp - dischargingRecords[i].timestamp
                 }
             }
@@ -148,7 +222,7 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
             var averagePower = 0.0
             var recordNum = 0
             for (i in dischargingRecords.lastIndex downTo 0) {
-                if (dischargingRecords[i].packageName.equals("standby") &&
+                if (dischargingRecords[i].packageName == "standby" &&
                     dischargingRecords[i].batteryPower < 0
                 ) {
                     averagePower =
@@ -165,7 +239,7 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
         if (dischargingRecords.isNotEmpty()) {
             var percentage = 0
             for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                if (dischargingRecords[i].packageName.equals("standby")) {
+                if (dischargingRecords[i].packageName == "standby") {
                     percentage +=
                         dischargingRecords[i].batteryPercentage - dischargingRecords[i + 1].batteryPercentage
                 }
@@ -173,54 +247,6 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
             return percentage
         }
         return 0
-    }
-
-    fun getPerappPowerList(): Map<String, List<Int>> {
-        if (dischargingRecords.isNotEmpty()) {
-            val perappPowerList: MutableMap<String, MutableList<Int>> = mutableMapOf()
-            for (item in dischargingRecords) {
-                if (!perappPowerList.containsKey(item.packageName)) {
-                    perappPowerList[item.packageName] = mutableListOf()
-                }
-                if (item.batteryPower < 0) {
-                    perappPowerList[item.packageName]!!.add(-item.batteryPower)
-                }
-            }
-            return perappPowerList
-        }
-        return mapOf()
-    }
-
-    fun getPerappTemperatureList(): Map<String, List<Int>> {
-        if (dischargingRecords.isNotEmpty()) {
-            val perappTemperatureList: MutableMap<String, MutableList<Int>> = mutableMapOf()
-            for (item in dischargingRecords) {
-                if (!perappTemperatureList.containsKey(item.packageName)) {
-                    perappTemperatureList[item.packageName] = mutableListOf()
-                }
-                perappTemperatureList[item.packageName]!!.add(item.batteryTemperature)
-            }
-            return perappTemperatureList
-        }
-        return mapOf()
-    }
-
-    fun getPerappUsedTime(): Map<String, Long> {
-        if (dischargingRecords.isNotEmpty()) {
-            val perappUsedTime: MutableMap<String, Long> = mutableMapOf()
-            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                val duration = dischargingRecords[i + 1].timestamp - dischargingRecords[i].timestamp
-                if (duration > 0) {
-                    if (!perappUsedTime.containsKey(dischargingRecords[i].packageName)) {
-                        perappUsedTime[dischargingRecords[i].packageName] = 0L
-                    }
-                    perappUsedTime[dischargingRecords[i].packageName] =
-                        perappUsedTime[dischargingRecords[i].packageName]!! + duration
-                }
-            }
-            return perappUsedTime
-        }
-        return mapOf()
     }
 
     fun getRemainingUsageTime(): Long {
@@ -240,48 +266,34 @@ class BattStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
         return 0L
     }
 
-    fun getLastChargingDuration(): Long {
-        if (chargingRecords.isNotEmpty()) {
-            return (chargingRecords.last().timestamp - chargingRecords.first().timestamp)
-        }
-        return 0L
-    }
-
-    fun getLastChargingPowerList(): List<Int> {
-        if (chargingRecords.isNotEmpty()) {
-            val chargingPowerList: MutableList<Int> = mutableListOf()
-            for (item in chargingRecords) {
-                if (item.batteryPower > 0) {
-                    chargingPowerList.add(item.batteryPower)
-                } else {
-                    chargingPowerList.add(0)
+    fun getPerappBatteryStatsReport(): Map<String, BatteryStatsReport> {
+        val perappBatteryStatsReport: MutableMap<String, BatteryStatsReport> = mutableMapOf()
+        if (dischargingRecords.isNotEmpty()) {
+            val perappRecords: MutableMap<String, MutableList<BatteryStatsItem>> = mutableMapOf()
+            for (item in dischargingRecords) {
+                if (!perappRecords.contains(item.packageName)) {
+                    perappRecords[item.packageName] = mutableListOf()
+                }
+                perappRecords[item.packageName]!!.add(item)
+            }
+            for ((pkgName, records) in perappRecords) {
+                if (pkgName != "other" && pkgName != "standby") {
+                    val batteryStatsReport = generateBatteryStatsReport(records)
+                    if (batteryStatsReport != null) {
+                        perappBatteryStatsReport[pkgName] = batteryStatsReport
+                    }
                 }
             }
-            return chargingPowerList
         }
-        return listOf()
+        return perappBatteryStatsReport
     }
 
-    fun getLastChargingTemperatureList(): List<Int> {
-        if (chargingRecords.isNotEmpty()) {
-            val chargingTemperatureList: MutableList<Int> = mutableListOf()
-            for (item in chargingRecords) {
-                chargingTemperatureList.add(item.batteryTemperature)
-            }
-            return chargingTemperatureList
+    fun getChargingBatteryStatsReport(): BatteryStatsReport {
+        val batteryStatsReport = generateBatteryStatsReport(chargingRecords)
+        if (batteryStatsReport != null) {
+            return batteryStatsReport
         }
-        return listOf()
-    }
-
-    fun getLastChargingPercentageList(): List<Int> {
-        if (chargingRecords.isNotEmpty()) {
-            val chargingPercentageList: MutableList<Int> = mutableListOf()
-            for (item in chargingRecords) {
-                chargingPercentageList.add(item.batteryPercentage)
-            }
-            return chargingPercentageList
-        }
-        return listOf()
+        return BatteryStatsReport()
     }
 
     fun getBatteryHealthReport(): BatteryHealthReport {

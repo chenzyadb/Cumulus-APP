@@ -13,7 +13,7 @@ fun DurationToText(duration: Long): String {
         var text = ""
         val day = duration / 3600 / 24
         if (day > 0) {
-            text += "${day}天 "
+            text += "${day}天"
         }
         val hour = (duration / 3600) % 24
         if (hour > 0) {
@@ -26,17 +26,4 @@ fun DurationToText(duration: Long): String {
         return text
     }
     return "小于1分钟"
-}
-
-fun SimplifyDataPoints(dataPoints: IntArray): IntArray {
-    if (dataPoints.size > 1000) {
-        val simplifiedDataPoints: MutableList<Int> = mutableListOf()
-        val factor = dataPoints.size.toDouble() / 500.0
-        for (i in 0 until 500) {
-            simplifiedDataPoints.add(dataPoints[(factor * i).toInt()])
-        }
-        simplifiedDataPoints.add(dataPoints.last())
-        return simplifiedDataPoints.toIntArray()
-    }
-    return dataPoints
 }

@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -50,9 +49,9 @@ import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusColor
-import cumulus.battery.stats.utils.BattStatsRecordAnalysis
+import cumulus.battery.stats.utils.BatteryStatsRecordAnalysis
 import cumulus.battery.stats.utils.DurationToText
-import cumulus.battery.stats.utils.SimplifyDataPoints
+import cumulus.battery.stats.widgets.DataPointList
 import cumulus.battery.stats.widgets.GoToButton
 import cumulus.battery.stats.widgets.SingleLineChart
 import kotlinx.coroutines.CoroutineScope
@@ -70,11 +69,10 @@ class MainActivity : ComponentActivity() {
     private var batteryPower: Int by mutableIntStateOf(0)
     private var batteryTemperature: Int by mutableIntStateOf(0)
     private var batteryStatus: Int by mutableIntStateOf(BatteryManager.BATTERY_STATUS_UNKNOWN)
-    private var batteryCapacityArray: IntArray by mutableStateOf(IntArray(0))
+    private var batteryPercentageDataPoints: DataPointList by mutableStateOf(listOf())
     private var screenOnDuration: Long by mutableLongStateOf(0)
     private var remainingUsageTime: Long by mutableLongStateOf(0)
 
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         BatteryStatsProvider.init(applicationContext)
@@ -357,8 +355,7 @@ class MainActivity : ComponentActivity() {
             horizontalAlignment = Alignment.Start
         ) {
             SingleLineChart(
-                lineDataArray = SimplifyDataPoints(batteryCapacityArray),
-                tickMax = 100,
+                dataPointList = batteryPercentageDataPoints,
                 modifier = Modifier
                     .padding(start = 20.dp, end = 20.dp, top = 20.dp)
                     .height(120.dp)
@@ -473,8 +470,8 @@ class MainActivity : ComponentActivity() {
     private fun updateRecordAnalysis() {
         CoroutineScope(Dispatchers.Default).launch {
             val records = BatteryStatsRecorder.getRecords()
-            val recordAnalysis = BattStatsRecordAnalysis(records)
-            batteryCapacityArray = recordAnalysis.getUsagePercentageList().toIntArray()
+            val recordAnalysis = BatteryStatsRecordAnalysis(records)
+            batteryPercentageDataPoints = recordAnalysis.getUsagePercentageDataPoints()
             screenOnDuration = recordAnalysis.getScreenOnDuration()
             remainingUsageTime = recordAnalysis.getRemainingUsageTime()
         }

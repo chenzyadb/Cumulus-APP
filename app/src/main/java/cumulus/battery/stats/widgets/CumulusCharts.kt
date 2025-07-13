@@ -3,6 +3,7 @@ package cumulus.battery.stats.widgets
 import android.graphics.Paint
 import android.graphics.Path
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -13,6 +14,35 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 
+typealias DataPointList = List<Pair<UInt, UInt>>
+typealias DataPointMutableList = MutableList<Pair<UInt, UInt>>
+
+private fun SimplifyDataPoints(dataPoints: DataPointList): DataPointList {
+    if (dataPoints.size > 1000) {
+        val simplifiedDataPoints: DataPointMutableList = mutableListOf()
+        val factor = dataPoints.size.toDouble() / 500.0
+        for (i in 0 until 500) {
+            simplifiedDataPoints.add(dataPoints[(factor * i).toInt()])
+        }
+        simplifiedDataPoints.add(dataPoints.last())
+        return simplifiedDataPoints
+    }
+    return dataPoints
+}
+
+private fun GetDataPointsTickMax(dataPoints: DataPointList): UInt {
+    var tickMax = 10U
+    dataPoints.forEach { dataPoint ->
+        if (dataPoint.second > tickMax) {
+            tickMax = dataPoint.second
+        }
+    }
+    if ((tickMax % 10U) == 0U) {
+        return tickMax
+    }
+    return ((tickMax / 10U + 1U) * 10U)
+}
+
 private fun DpToPx(density: Float, dp: Float): Float {
     return (dp * density)
 }
@@ -20,11 +50,15 @@ private fun DpToPx(density: Float, dp: Float): Float {
 @Composable
 fun SingleLineChart(
     modifier: Modifier,
-    lineDataArray: IntArray,
-    tickMax: Int,
+    dataPointList: DataPointList,
     lineColor: Color
 ) {
     val density = LocalContext.current.resources.displayMetrics.density
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val tickMarkColor = Color(0xFFAAAAAA)
+    val dataPoints = SimplifyDataPoints(dataPointList)
+    val tickMax = GetDataPointsTickMax(dataPoints)
+
     Canvas(
         modifier = modifier
     ) {
@@ -33,7 +67,7 @@ fun SingleLineChart(
         for (i in 0..4) {
             val y = DpToPx(density, 5f) + (size.height - DpToPx(density, 10f)) * i / 4
             drawLine(
-                color = Color(0xFFAAAAAA),
+                color = tickMarkColor,
                 strokeWidth = DpToPx(density, 1f),
                 start = Offset(x = 0f, y = y),
                 end = Offset(x = size.width - DpToPx(density, 20f), y = y),
@@ -49,7 +83,7 @@ fun SingleLineChart(
                 style = Paint.Style.FILL
                 strokeWidth = DpToPx(density, 1f)
                 textSize = DpToPx(density, 8f)
-                color = Color(0xFFAAAAAA).toArgb()
+                color = primaryColor.toArgb()
                 isAntiAlias = true
             }
         }
@@ -71,33 +105,34 @@ fun SingleLineChart(
                 isAntiAlias = true
             }
         }
-        if (lineDataArray.lastIndex > 2) {
+        if (dataPoints.lastIndex > 2) {
             val chartPath = Path()
-            val startY =
-                (size.height - DpToPx(density, 5f)) -
-                        (size.height - DpToPx(density, 10f)) * lineDataArray[0] / tickMax
-            chartPath.moveTo(0f, startY)
-            var previousPoint = Offset(0f, startY)
-            for (i in 1..lineDataArray.lastIndex) {
-                if (lineDataArray[i] <= tickMax && lineDataArray[i] >= 0) {
-                    val x = (size.width - DpToPx(density, 20f)) * i / lineDataArray.lastIndex
-                    val y = (size.height - DpToPx(density, 5f)) -
-                            (size.height - DpToPx(density, 10f)) * lineDataArray[i] / tickMax
-                    val currentPoint = Offset(x, y)
-                    val bezierControlPoint1 =
-                        previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
-                    val bezierControlPoint2 =
-                        currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
-                    chartPath.cubicTo(
-                        bezierControlPoint1.x,
-                        bezierControlPoint1.y,
-                        bezierControlPoint2.x,
-                        bezierControlPoint2.y,
-                        currentPoint.x,
-                        currentPoint.y
-                    )
-                    previousPoint = currentPoint
-                }
+            val startX = 0f
+            val startY = (size.height - DpToPx(density, 5f)) -
+                    (size.height - DpToPx(density, 10f)) *
+                    (dataPoints[0].second.toFloat() / tickMax.toFloat())
+            chartPath.moveTo(startX, startY)
+            var previousPoint = Offset(startX, startY)
+            for (i in 1..dataPoints.lastIndex) {
+                val x = (size.width - DpToPx(density, 20f)) *
+                        (dataPoints[i].first.toFloat() / dataPoints.last().first.toFloat())
+                val y = (size.height - DpToPx(density, 5f)) -
+                        (size.height - DpToPx(density, 10f)) *
+                        (dataPoints[i].second.toFloat() / tickMax.toFloat())
+                val currentPoint = Offset(x, y)
+                val bezierControlPoint1 =
+                    previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                val bezierControlPoint2 =
+                    currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                chartPath.cubicTo(
+                    bezierControlPoint1.x,
+                    bezierControlPoint1.y,
+                    bezierControlPoint2.x,
+                    bezierControlPoint2.y,
+                    currentPoint.x,
+                    currentPoint.y
+                )
+                previousPoint = currentPoint
             }
             nativeCanvas.drawPath(chartPath, chartPaint)
         }
@@ -107,16 +142,21 @@ fun SingleLineChart(
 @Composable
 fun MultiLineChart(
     modifier: Modifier,
-    line0DataArray: IntArray,
-    line1DataArray: IntArray,
-    tick0Max: Int,
-    tick1Max: Int,
+    dataPointList0: DataPointList,
+    dataPointList1: DataPointList,
     line0Color: Color,
     line1Color: Color,
     line0Title: String,
     line1Title: String
 ) {
     val density = LocalContext.current.resources.displayMetrics.density
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val tickMarkColor = Color(0xFFAAAAAA)
+    val line0DataPoints = SimplifyDataPoints(dataPointList0)
+    val line1DataPoints = SimplifyDataPoints(dataPointList1)
+    val line0TickMax = GetDataPointsTickMax(line0DataPoints)
+    val line1TickMax = GetDataPointsTickMax(line1DataPoints)
+
     Canvas(
         modifier = modifier
     ) {
@@ -125,7 +165,7 @@ fun MultiLineChart(
         for (i in 0..4) {
             val y = DpToPx(density, 5f) + (size.height - DpToPx(density, 30f)) * i / 4
             drawLine(
-                color = Color(0xFFAAAAAA),
+                color = tickMarkColor,
                 strokeWidth = DpToPx(density, 1f),
                 start = Offset(x = DpToPx(density, 20f), y = y),
                 end = Offset(x = size.width - DpToPx(density, 20f), y = y),
@@ -141,12 +181,12 @@ fun MultiLineChart(
                 style = Paint.Style.FILL
                 strokeWidth = DpToPx(density, 1f)
                 textSize = DpToPx(density, 8f)
-                color = Color(0xFFAAAAAA).toArgb()
+                color = primaryColor.toArgb()
                 isAntiAlias = true
             }
         }
         for (i in 0..4) {
-            val tickValue = tick0Max.toDouble() * i / 4
+            val tickValue = line0TickMax.toDouble() * i / 4
             if (tickValue % 1.0 == 0.0) {
                 val text = tickValue.toInt().toString()
                 val y = (size.height - DpToPx(density, 22f)) -
@@ -155,7 +195,7 @@ fun MultiLineChart(
             }
         }
         for (i in 1..4) {
-            val tickValue = tick1Max.toDouble() * i / 4
+            val tickValue = line1TickMax.toDouble() * i / 4
             if (tickValue % 1.0 == 0.0) {
                 val text = tickValue.toInt().toString()
                 val y = (size.height - DpToPx(density, 22f)) -
@@ -164,34 +204,34 @@ fun MultiLineChart(
             }
         }
 
-        if (line0DataArray.lastIndex > 2) {
+        if (line0DataPoints.lastIndex > 2) {
             val chartPath = Path()
             val startX = DpToPx(density, 20f)
             val startY = (size.height - DpToPx(density, 25f)) -
-                    (size.height - DpToPx(density, 30f)) * line0DataArray[0] / tick0Max
+                    (size.height - DpToPx(density, 30f)) *
+                    (line0DataPoints[0].second.toFloat() / line0TickMax.toFloat())
             chartPath.moveTo(startX, startY)
             var previousPoint = Offset(startX, startY)
-            for (i in 1..line0DataArray.lastIndex) {
-                if (line0DataArray[i] <= tick0Max && line0DataArray[i] >= 0) {
-                    val x =
-                        startX + (size.width - DpToPx(density, 40f)) * i / line0DataArray.lastIndex
-                    val y = (size.height - DpToPx(density, 25f)) -
-                            (size.height - DpToPx(density, 30f)) * line0DataArray[i] / tick0Max
-                    val currentPoint = Offset(x, y)
-                    val bezierControlPoint1 =
-                        previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
-                    val bezierControlPoint2 =
-                        currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
-                    chartPath.cubicTo(
-                        bezierControlPoint1.x,
-                        bezierControlPoint1.y,
-                        bezierControlPoint2.x,
-                        bezierControlPoint2.y,
-                        currentPoint.x,
-                        currentPoint.y
-                    )
-                    previousPoint = currentPoint
-                }
+            for (i in 1..line0DataPoints.lastIndex) {
+                val x = DpToPx(density, 20f) + (size.width - DpToPx(density, 40f)) *
+                        (line0DataPoints[i].first.toFloat() / line0DataPoints.last().first.toFloat())
+                val y = (size.height - DpToPx(density, 25f)) -
+                        (size.height - DpToPx(density, 30f)) *
+                        (line0DataPoints[i].second.toFloat() / line0TickMax.toFloat())
+                val currentPoint = Offset(x, y)
+                val bezierControlPoint1 =
+                    previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                val bezierControlPoint2 =
+                    currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                chartPath.cubicTo(
+                    bezierControlPoint1.x,
+                    bezierControlPoint1.y,
+                    bezierControlPoint2.x,
+                    bezierControlPoint2.y,
+                    currentPoint.x,
+                    currentPoint.y
+                )
+                previousPoint = currentPoint
             }
             val chartPaint = Paint().let {
                 it.apply {
@@ -204,34 +244,34 @@ fun MultiLineChart(
             nativeCanvas.drawPath(chartPath, chartPaint)
         }
 
-        if (line1DataArray.lastIndex > 2) {
+        if (line1DataPoints.lastIndex > 2) {
             val chartPath = Path()
             val startX = DpToPx(density, 20f)
             val startY = (size.height - DpToPx(density, 25f)) -
-                    (size.height - DpToPx(density, 30f)) * line1DataArray[0] / tick1Max
+                    (size.height - DpToPx(density, 30f)) *
+                    (line1DataPoints[0].second.toFloat() / line1TickMax.toFloat())
             chartPath.moveTo(startX, startY)
             var previousPoint = Offset(startX, startY)
-            for (i in 1..line1DataArray.lastIndex) {
-                if (line1DataArray[i] <= tick1Max && line1DataArray[i] >= 0) {
-                    val x =
-                        startX + (size.width - DpToPx(density, 40f)) * i / line1DataArray.lastIndex
-                    val y = (size.height - DpToPx(density, 25f)) -
-                            (size.height - DpToPx(density, 30f)) * line1DataArray[i] / tick1Max
-                    val currentPoint = Offset(x, y)
-                    val bezierControlPoint1 =
-                        previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
-                    val bezierControlPoint2 =
-                        currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
-                    chartPath.cubicTo(
-                        bezierControlPoint1.x,
-                        bezierControlPoint1.y,
-                        bezierControlPoint2.x,
-                        bezierControlPoint2.y,
-                        currentPoint.x,
-                        currentPoint.y
-                    )
-                    previousPoint = currentPoint
-                }
+            for (i in 1..line1DataPoints.lastIndex) {
+                val x = DpToPx(density, 20f) + (size.width - DpToPx(density, 40f)) *
+                        (line1DataPoints[i].first.toFloat() / line1DataPoints.last().first.toFloat())
+                val y = (size.height - DpToPx(density, 25f)) -
+                        (size.height - DpToPx(density, 30f)) *
+                        (line1DataPoints[i].second.toFloat() / line1TickMax.toFloat())
+                val currentPoint = Offset(x, y)
+                val bezierControlPoint1 =
+                    previousPoint + Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                val bezierControlPoint2 =
+                    currentPoint - Offset((currentPoint.x - previousPoint.x) * 0.25f, 0f)
+                chartPath.cubicTo(
+                    bezierControlPoint1.x,
+                    bezierControlPoint1.y,
+                    bezierControlPoint2.x,
+                    bezierControlPoint2.y,
+                    currentPoint.x,
+                    currentPoint.y
+                )
+                previousPoint = currentPoint
             }
             val chartPaint = Paint().let {
                 it.apply {

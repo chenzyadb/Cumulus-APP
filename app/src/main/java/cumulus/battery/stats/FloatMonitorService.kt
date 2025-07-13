@@ -63,7 +63,7 @@ class FloatMonitorService : Service() {
         floatWindow!!.setTextColor(Color(0xFFFFFFFF).toArgb())
         floatWindow!!.textSize = 9f
         val typeface = ResourcesCompat.getFont(applicationContext, R.font.jetbrainsmono)
-        floatWindow!!.setTypeface(typeface)
+        floatWindow!!.typeface = typeface
 
         val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         val layoutParams = WindowManager.LayoutParams()
