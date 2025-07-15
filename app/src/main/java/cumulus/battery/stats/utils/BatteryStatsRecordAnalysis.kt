@@ -3,7 +3,6 @@ package cumulus.battery.stats.utils
 import android.os.BatteryManager
 import cumulus.battery.stats.widgets.DataPointList
 import cumulus.battery.stats.widgets.DataPointMutableList
-import kotlin.math.abs
 
 data class BatteryHealthReport(
     var sampleSize: Int = 0,
@@ -96,15 +95,19 @@ class BatteryStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
                 timestampList.add(item.timestamp)
                 percentageList.add(item.batteryPercentage)
                 if (item.batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING) {
-                    powerList.add(when {
-                        (item.batteryPower > 0) -> item.batteryPower
-                        else -> 0
-                    })
+                    powerList.add(
+                        when {
+                            (item.batteryPower > 0) -> item.batteryPower
+                            else -> 0
+                        }
+                    )
                 } else {
-                    powerList.add(when {
-                        (item.batteryPower < 0) -> -item.batteryPower
-                        else -> 0
-                    })
+                    powerList.add(
+                        when {
+                            (item.batteryPower < 0) -> -item.batteryPower
+                            else -> 0
+                        }
+                    )
                 }
                 temperatureList.add(item.batteryTemperature)
             }

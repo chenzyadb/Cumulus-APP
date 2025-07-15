@@ -19,7 +19,6 @@ object BatteryStatsProvider {
 
     @SuppressLint("PrivateApi")
     fun getBatteryDesignCapacity(context: Context): Int {
-        var batteryDesignCapacity = 0
         try {
             val powerProfileClassName = "com.android.internal.os.PowerProfile"
             val mPowerProfile =
@@ -27,61 +26,143 @@ object BatteryStatsProvider {
                     .newInstance(context)
             val capacity = Class.forName(powerProfileClassName).getMethod("getBatteryCapacity")
                 .invoke(mPowerProfile)
-            batteryDesignCapacity = (capacity as Double).toInt()
+            return (capacity as Double).toInt()
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return batteryDesignCapacity
+        return 0
     }
 
     fun getBatteryTemperature(context: Context): Int {
-        val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
-        val intent = context.registerReceiver(null, intentFilter)
-        if (intent != null) {
-            return (intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10)
+        try {
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
+            val intent = context.registerReceiver(null, intentFilter)
+            if (intent != null) {
+                return (intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
         return 0
     }
 
     fun getBatteryVoltage(context: Context): Int {
-        val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
-        val intent = context.registerReceiver(null, intentFilter)
-        if (intent != null) {
-            val batteryVolt = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
-            if (batteryVolt < 1000) {
-                return batteryVolt * 1000
+        try {
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
+            val intent = context.registerReceiver(null, intentFilter)
+            if (intent != null) {
+                val batteryVolt = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
+                if (batteryVolt < 1000) {
+                    return batteryVolt * 1000
+                }
+                return batteryVolt
             }
-            return batteryVolt
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
         return 0
     }
 
     fun getBatteryStatus(context: Context): Int {
-        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-        return batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
+        try {
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
+            val intent = context.registerReceiver(null, intentFilter)
+            if (intent != null) {
+                return intent.getIntExtra(
+                    BatteryManager.EXTRA_STATUS,
+                    BatteryManager.BATTERY_STATUS_UNKNOWN
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return BatteryManager.BATTERY_STATUS_UNKNOWN
     }
 
     fun getBatteryCapacity(context: Context): Int {
-        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-        return batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        try {
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
+            val intent = context.registerReceiver(null, intentFilter)
+            if (intent != null) {
+                return intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return 0
     }
 
     fun getBatteryCurrent(context: Context): Int {
-        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-        var batteryCurrent =
-            batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-        if (isDualBattery()) {
-            batteryCurrent *= 2
+        try {
+            val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            var batteryCurrent =
+                batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+            if (isDualBattery()) {
+                batteryCurrent *= 2
+            }
+            if (isCurrentUnitUA()) {
+                batteryCurrent /= 1000
+            }
+            if (isCurrentReverse()) {
+                batteryCurrent = -batteryCurrent
+            }
+            return batteryCurrent
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        if (isCurrentUnitUA()) {
-            batteryCurrent /= 1000
+        return 0
+    }
+
+    fun getBatteryHealth(context: Context): Int {
+        try {
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
+            val intent = context.registerReceiver(null, intentFilter)
+            val batteryHealth = intent?.getIntExtra(
+                BatteryManager.EXTRA_HEALTH,
+                BatteryManager.BATTERY_HEALTH_UNKNOWN
+            )
+            if (batteryHealth != null) {
+                return batteryHealth
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        if (isCurrentReverse()) {
-            batteryCurrent = -batteryCurrent
+        return BatteryManager.BATTERY_HEALTH_UNKNOWN
+    }
+
+    fun getBatteryTechnology(context: Context): String {
+        try {
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
+            val intent = context.registerReceiver(null, intentFilter)
+            val batteryTechnology = intent?.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY)
+            if (batteryTechnology != null) {
+                return batteryTechnology
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        return batteryCurrent
+        return "unknown"
+    }
+
+    @SuppressLint("InlinedApi")
+    fun getBatteryCycleCount(context: Context): Int {
+        try {
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            intentFilter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
+            val intent = context.registerReceiver(null, intentFilter)
+            if (intent != null) {
+                return intent.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, 0)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return 0
     }
 
     fun setDualBattery(dualBattery: Boolean) {

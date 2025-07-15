@@ -2,6 +2,7 @@ package cumulus.battery.stats
 
 import android.annotation.SuppressLint
 import android.content.res.Resources
+import android.os.BatteryManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -383,7 +384,7 @@ class ChargingProcessActivity : ComponentActivity() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(220.dp)
                 .padding(top = 10.dp)
                 .background(
                     shape = RoundedCornerShape(10.dp),
@@ -586,7 +587,79 @@ class ChargingProcessActivity : ComponentActivity() {
             }
             Row(
                 modifier = Modifier
-                    .padding(start = 20.dp, top = 10.dp)
+                    .padding(start = 20.dp)
+                    .fillMaxWidth()
+                    .height(25.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val batteryHealthString = hashMapOf(
+                    BatteryManager.BATTERY_HEALTH_OVERHEAT to "过热",
+                    BatteryManager.BATTERY_HEALTH_COLD to "过冷",
+                    BatteryManager.BATTERY_HEALTH_DEAD to "报废",
+                    BatteryManager.BATTERY_HEALTH_GOOD to "良好",
+                    BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE to "过压",
+                    BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE to "故障",
+                    BatteryManager.BATTERY_HEALTH_UNKNOWN to "未知"
+                )
+
+                val batteryHealth = BatteryStatsProvider.getBatteryHealth(applicationContext)
+                val batteryTechnology =
+                    BatteryStatsProvider.getBatteryTechnology(applicationContext)
+                val batteryCycleCount =
+                    BatteryStatsProvider.getBatteryCycleCount(applicationContext)
+                Text(
+                    text = "电池状态: ",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = batteryHealthString[batteryHealth]!!,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusColor().blue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = ", 技术: ",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = batteryTechnology,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusColor().blue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = ", 循环次数: ",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = batteryCycleCount.toString(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = cumulusColor().blue,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .padding(start = 20.dp, top = 5.dp)
                     .fillMaxWidth()
                     .height(25.dp),
                 horizontalArrangement = Arrangement.Start,

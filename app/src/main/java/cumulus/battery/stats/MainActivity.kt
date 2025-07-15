@@ -111,7 +111,8 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-                    ) {
+                    )
+                    {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()

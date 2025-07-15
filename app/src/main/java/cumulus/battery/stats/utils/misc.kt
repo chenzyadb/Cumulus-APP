@@ -1,9 +1,16 @@
 package cumulus.battery.stats.utils
 
+import android.os.Build
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.Calendar
+import java.util.TimeZone
 
 fun GetTimeStamp(): Long {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        return (calendar.timeInMillis / 1000)
+    }
     val currentDateTime = LocalDateTime.now()
     return currentDateTime.toInstant(ZoneOffset.UTC).epochSecond
 }

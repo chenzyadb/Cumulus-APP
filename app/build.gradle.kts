@@ -11,10 +11,10 @@ android {
     // noinspection OldTargetApi
     defaultConfig {
         applicationId = "cumulus.battery.stats"
-        minSdk = 28
+        minSdk = 23
         targetSdk = 34
-        versionCode = 100060
-        versionName = "1.0.6"
+        versionCode = 100070
+        versionName = "1.0.7"
 
         vectorDrawables {
             useSupportLibrary = true

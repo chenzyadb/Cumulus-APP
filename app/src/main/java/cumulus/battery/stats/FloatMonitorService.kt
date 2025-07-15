@@ -1,8 +1,10 @@
 package cumulus.battery.stats
 
+import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -51,6 +53,8 @@ class FloatMonitorService : Service() {
         return super.onStartCommand(intent, START_FLAG_REDELIVERY, startId)
     }
 
+    @SuppressLint("SetTextI18n")
+    @Suppress("deprecation")
     private fun createFloatWindow() {
         if (floatWindow != null) {
             return
@@ -67,7 +71,10 @@ class FloatMonitorService : Service() {
 
         val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         val layoutParams = WindowManager.LayoutParams()
-        layoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        layoutParams.type = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else -> WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
+        }
         layoutParams.flags =
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE + WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         layoutParams.format = PixelFormat.RGBA_8888

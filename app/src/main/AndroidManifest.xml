@@ -12,6 +12,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="Cumulus"
         android:theme="@style/Theme.Cumulus"
+        android:hardwareAccelerated="true"
         tools:targetApi="34">
 
         <activity
