@@ -1,15 +1,20 @@
 package cumulus.battery.stats
 
 import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
 import android.graphics.Rect
 import android.os.PowerManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.Timer
 import java.util.TimerTask
 
+@SuppressLint("AccessibilityPolicy")
 class BackgroundService : AccessibilityService() {
     companion object {
         private var serviceCreated = false
@@ -21,6 +26,7 @@ class BackgroundService : AccessibilityService() {
 
     private var timer: Timer? = null
     private var deviceScreenSize: Long = 0
+    private var focusedAppPkgName: String = "other"
 
     override fun onCreate() {
         super.onCreate()
@@ -30,28 +36,40 @@ class BackgroundService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+
         BatteryStatsProvider.init(applicationContext)
         BatteryStatsRecorder.init(applicationContext)
+
+        CoroutineScope(Dispatchers.Default).launch {
+            BatteryStatsRecorder.optimize()
+        }
+
         startTimer()
     }
 
-    override fun onInterrupt() {
-        BatteryStatsRecorder.optimize()
-    }
+    override fun onInterrupt() { }
 
     override fun onDestroy() {
         serviceCreated = false
         stopTimer()
-        BatteryStatsRecorder.optimize()
         super.onDestroy()
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event != null) {
+            focusedAppPkgName = event.packageName.toString()
+        }
+    }
 
     private fun addRecordItem() {
         var foregroundPkgName = "standby"
         if (isScreenOn()) {
-            foregroundPkgName = getForegroundPkgName()
+            val topWindowPkgName = getTopWindowPkgName()
+            if (topWindowPkgName != null) {
+                foregroundPkgName = topWindowPkgName
+            } else {
+                foregroundPkgName = focusedAppPkgName
+            }
         }
 
         val context = applicationContext
@@ -89,7 +107,7 @@ class BackgroundService : AccessibilityService() {
         return powerManager.isInteractive
     }
 
-    private fun getForegroundPkgName(): String {
+    private fun getTopWindowPkgName(): String? {
         var topWindow: AccessibilityWindowInfo? = null
         windows.forEach { window ->
             val windowRect = Rect()
@@ -100,12 +118,12 @@ class BackgroundService : AccessibilityService() {
             }
         }
         if (topWindow != null) {
-            val pkgName = topWindow?.root?.packageName?.toString()
+            val pkgName = topWindow.root?.packageName?.toString()
             if (pkgName != null) {
                 return pkgName
             }
         }
-        return "other"
+        return null
     }
 
     private fun getDeviceScreenSize(): Long {

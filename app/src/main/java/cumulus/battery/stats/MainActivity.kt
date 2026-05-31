@@ -75,8 +75,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         BatteryStatsProvider.init(applicationContext)
         BatteryStatsRecorder.init(applicationContext)
+
+        CoroutineScope(Dispatchers.Default).launch {
+            BatteryStatsRecorder.optimize()
+        }
+
         setContent {
             CumulusTheme {
                 Surface(
@@ -160,7 +166,6 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        BatteryStatsRecorder.optimize()
         super.onDestroy()
     }
 
