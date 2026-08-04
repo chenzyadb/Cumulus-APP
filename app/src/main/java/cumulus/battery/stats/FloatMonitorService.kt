@@ -16,12 +16,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.res.ResourcesCompat
 import cumulus.battery.stats.objects.BatteryStatsProvider
+import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.objects.CpuStatsProvider
 import java.util.Timer
 import java.util.TimerTask
 
 class FloatMonitorService : Service() {
     companion object {
+        private const val MAX_PACKAGE_NAME_LENGTH = 36
+        private const val PACKAGE_NAME_HEAD_LENGTH = 18
+        private const val PACKAGE_NAME_TAIL_LENGTH = 15
+
         private var serviceCreated = false
         fun isServiceCreated(): Boolean {
             return serviceCreated
@@ -38,6 +43,7 @@ class FloatMonitorService : Service() {
     override fun onCreate() {
         super.onCreate()
         serviceCreated = true
+        BatteryStatsRecorder.init(applicationContext)
         createFloatWindow()
         startTimer()
     }
@@ -98,7 +104,9 @@ class FloatMonitorService : Service() {
             BatteryStatsProvider.getBatteryVoltage(applicationContext) * batteryCurrent / 1000
         val cpuFreqs = CpuStatsProvider.getCpuFreqs()
         val cpuGovernor = CpuStatsProvider.getCpuGovernor()
+        val foregroundPkgName = BatteryStatsRecorder.getLatestRecord()?.packageName.orEmpty()
         var monitorText = ""
+        monitorText += "#App ${formatPackageName(foregroundPkgName)} \n"
         monitorText += "#Battery ${batteryCapacity} % ${batteryTemperature} °C \n"
         monitorText += "#Power ${batteryPower} mW \n"
         monitorText += "#Current ${batteryCurrent} mA \n"
@@ -114,6 +122,18 @@ class FloatMonitorService : Service() {
             }
             floatWindow!!.text = monitorText
         }
+    }
+
+    private fun formatPackageName(packageName: String): String {
+        if (packageName.isBlank()) {
+            return "-"
+        }
+        if (packageName.length <= MAX_PACKAGE_NAME_LENGTH) {
+            return packageName
+        }
+        return packageName.take(PACKAGE_NAME_HEAD_LENGTH) +
+                "..." +
+                packageName.takeLast(PACKAGE_NAME_TAIL_LENGTH)
     }
 
     private fun startTimer() {

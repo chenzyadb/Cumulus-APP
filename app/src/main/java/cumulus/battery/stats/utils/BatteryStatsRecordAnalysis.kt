@@ -3,6 +3,18 @@ package cumulus.battery.stats.utils
 import android.os.BatteryManager
 import cumulus.battery.stats.widgets.DataPointList
 import cumulus.battery.stats.widgets.DataPointMutableList
+import kotlin.math.roundToInt
+import kotlin.math.roundToLong
+
+private const val MIN_CHARGING_SESSION_PERCENTAGE = 10
+private const val MAX_RECORD_GAP_SECONDS = 120L
+private const val EXPECTED_SCREEN_ON_RECORD_INTERVAL_SECONDS = 2L
+private const val MAX_CONTINUOUS_SCREEN_ON_GAP_SECONDS = 5L
+private const val MIN_SCREEN_OFF_POWER_SAMPLE_SIZE_FOR_OUTLIER_FILTER = 3
+private const val SCREEN_OFF_POWER_HIGH_OUTLIER_MULTIPLIER = 3.0
+private const val REMAINING_TIME_LOOKBACK_SECONDS = 24L * 3600L
+private const val MAX_REMAINING_TIME_SAMPLE_DROP_PERCENTAGE = 20
+private const val MIN_REMAINING_TIME_SCREEN_ON_DURATION_SECONDS = 60L
 
 data class BatteryHealthReport(
     var sampleSize: Int = 0,
@@ -28,29 +40,38 @@ class BatteryStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
     private val chargingRecords = getLastChargingRecords()
 
     private fun getLastChargingRecords(): List<BatteryStatsItem> {
-        if (records.isNotEmpty()) {
-            var endPos = 0
-            for (i in records.lastIndex downTo 0) {
-                if (records[i].batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING) {
-                    endPos = i
-                    break
-                }
-            }
-
-            var beginPos = endPos
-            for (i in endPos downTo 0) {
-                if (records[i].batteryStatus != BatteryManager.BATTERY_STATUS_CHARGING) {
-                    beginPos = i
-                    break
-                }
-            }
-            if (beginPos == endPos) {
-                beginPos = 0
-            }
-
-            return records.subList(beginPos, endPos)
+        if (records.isEmpty()) {
+            return listOf()
         }
-        return listOf()
+        var fallbackRecords: List<BatteryStatsItem> = listOf()
+        var endPos = records.lastIndex
+        while (endPos >= 0) {
+            while (endPos >= 0 &&
+                records[endPos].batteryStatus != BatteryManager.BATTERY_STATUS_CHARGING
+            ) {
+                endPos--
+            }
+            if (endPos < 0) {
+                break
+            }
+            var beginPos = endPos
+            while (beginPos >= 0 &&
+                records[beginPos].batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING
+            ) {
+                beginPos--
+            }
+            val chargingSession = records.subList(beginPos + 1, endPos + 1)
+            if (fallbackRecords.isEmpty()) {
+                fallbackRecords = chargingSession
+            }
+            val chargedPercentage = chargingSession.last().batteryPercentage -
+                    chargingSession.first().batteryPercentage
+            if (chargedPercentage >= MIN_CHARGING_SESSION_PERCENTAGE) {
+                return chargingSession
+            }
+            endPos = beginPos
+        }
+        return fallbackRecords
     }
 
     private fun getLastDischargingRecords(): List<BatteryStatsItem> {
@@ -121,17 +142,23 @@ class BatteryStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
             val percentageDataPoints: DataPointMutableList = mutableListOf()
             val powerDataPoints: DataPointMutableList = mutableListOf()
             val temperatureDataPoints: DataPointMutableList = mutableListOf()
-            var durationSinceStart = 0U
+            var durationSinceStart = 0L
             for (i in 1 until timestampList.size) {
-                val duration = (timestampList[i] - timestampList[i - 1]).toUInt()
-                if (duration < 5U) {
+                val duration = timestampList[i] - timestampList[i - 1]
+                if (duration in 0L until 5L) {
                     durationSinceStart += duration
-                    percentageDataPoints.add(Pair(durationSinceStart, percentageList[i].toUInt()))
-                    powerDataPoints.add(Pair(durationSinceStart, (powerList[i] / 1000).toUInt()))
-                    temperatureDataPoints.add(Pair(durationSinceStart, temperatureList[i].toUInt()))
+                    percentageDataPoints.add(
+                        Pair(durationSinceStart.toFloat(), percentageList[i].toFloat())
+                    )
+                    powerDataPoints.add(
+                        Pair(durationSinceStart.toFloat(), powerList[i].toFloat() / 1000f)
+                    )
+                    temperatureDataPoints.add(
+                        Pair(durationSinceStart.toFloat(), temperatureList[i].toFloat())
+                    )
                 }
             }
-            statsReport.duration = durationSinceStart.toLong()
+            statsReport.duration = durationSinceStart
             statsReport.percentageDataPoints = percentageDataPoints
             statsReport.powerDataPoints = powerDataPoints
             statsReport.temperatureDataPoints = temperatureDataPoints
@@ -145,19 +172,29 @@ class BatteryStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
         if (records.isNotEmpty()) {
             val percentageDataPoints: DataPointMutableList = mutableListOf()
             val minTimestamp = GetTimeStamp() - 24L * 3600L
-            for (i in records.lastIndex downTo 0) {
-                if (records[i].timestamp > minTimestamp) {
-                    percentageDataPoints.add(
-                        Pair(
-                            (records[i].timestamp - minTimestamp).toUInt(),
-                            records[i].batteryPercentage.toUInt()
-                        )
-                    )
-                } else {
-                    break
+            val recentRecords = records
+                .filter { it.timestamp > minTimestamp }
+                .sortedBy { it.timestamp }
+            var lastPercentage: Int? = null
+            var lastTimestamp: Long? = null
+            for (record in recentRecords) {
+                val x = (record.timestamp - minTimestamp).toFloat()
+                val y = record.batteryPercentage.toFloat()
+                if (record.timestamp == lastTimestamp) {
+                    if (record.batteryPercentage != lastPercentage && percentageDataPoints.isNotEmpty()) {
+                        percentageDataPoints[percentageDataPoints.lastIndex] = Pair(x, y)
+                        lastPercentage = record.batteryPercentage
+                    }
+                    continue
                 }
+                if (record.batteryPercentage == lastPercentage) {
+                    continue
+                }
+                percentageDataPoints.add(Pair(x, y))
+                lastPercentage = record.batteryPercentage
+                lastTimestamp = record.timestamp
             }
-            return percentageDataPoints.reversed()
+            return percentageDataPoints
         }
         return listOf()
     }
@@ -166,8 +203,15 @@ class BatteryStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
         if (dischargingRecords.isNotEmpty()) {
             var duration = 0L
             for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                if (dischargingRecords[i].packageName != "standby") {
-                    duration += dischargingRecords[i + 1].timestamp - dischargingRecords[i].timestamp
+                val intervalDuration = getIntervalDuration(
+                    dischargingRecords[i],
+                    dischargingRecords[i + 1]
+                )
+                if (intervalDuration > 0L) {
+                    duration += intervalDuration - estimateScreenOffDuration(
+                        dischargingRecords[i],
+                        dischargingRecords[i + 1]
+                    )
                 }
             }
             return duration
@@ -194,79 +238,171 @@ class BatteryStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
     }
 
     fun getScreenOnUsedPercentage(): Int {
-        if (dischargingRecords.isNotEmpty()) {
-            var percentage = 0
-            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                if (dischargingRecords[i].packageName != "standby") {
-                    percentage +=
-                        dischargingRecords[i].batteryPercentage - dischargingRecords[i + 1].batteryPercentage
-                }
-            }
-            return percentage
-        }
-        return 0
+        return getScreenUsagePercentages().first
     }
 
     fun getScreenOffDuration(): Long {
         if (dischargingRecords.isNotEmpty()) {
             var duration = 0L
             for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                if (dischargingRecords[i].packageName == "standby") {
-                    duration += dischargingRecords[i + 1].timestamp - dischargingRecords[i].timestamp
-                }
+                duration += estimateScreenOffDuration(
+                    dischargingRecords[i],
+                    dischargingRecords[i + 1]
+                )
             }
             return duration
         }
         return 0L
     }
 
+    private fun estimateScreenOffDuration(
+        currentRecord: BatteryStatsItem,
+        nextRecord: BatteryStatsItem
+    ): Long {
+        val intervalDuration = getIntervalDuration(currentRecord, nextRecord)
+        if (intervalDuration <= 0L) {
+            return 0L
+        }
+
+        val currentScreenOff = currentRecord.packageName == "standby"
+        val nextScreenOff = nextRecord.packageName == "standby"
+        val estimatedDuration = when {
+            currentScreenOff || nextScreenOff -> intervalDuration
+            intervalDuration >= MAX_CONTINUOUS_SCREEN_ON_GAP_SECONDS ->
+                intervalDuration - EXPECTED_SCREEN_ON_RECORD_INTERVAL_SECONDS
+            else -> 0L
+        }
+        return estimatedDuration.coerceIn(0L, intervalDuration)
+    }
+
+    private fun getIntervalDuration(
+        currentRecord: BatteryStatsItem,
+        nextRecord: BatteryStatsItem
+    ): Long {
+        return nextRecord.timestamp - currentRecord.timestamp
+    }
+
     fun getScreenOffAveragePower(): Int {
         if (dischargingRecords.isNotEmpty()) {
-            var averagePower = 0.0
-            var recordNum = 0
+            val powerList: MutableList<Int> = mutableListOf()
             for (i in dischargingRecords.lastIndex downTo 0) {
                 if (dischargingRecords[i].packageName == "standby" &&
                     dischargingRecords[i].batteryPower < 0
                 ) {
-                    averagePower =
-                        (averagePower * recordNum + (-dischargingRecords[i].batteryPower)) / (recordNum + 1)
-                    recordNum++
+                    powerList.add(-dischargingRecords[i].batteryPower)
                 }
             }
-            return averagePower.toInt()
+            if (powerList.isNotEmpty()) {
+                return filterScreenOffPowerOutliers(powerList).average().toInt()
+            }
         }
         return 0
+    }
+
+    private fun filterScreenOffPowerOutliers(powerList: List<Int>): List<Int> {
+        if (powerList.size < MIN_SCREEN_OFF_POWER_SAMPLE_SIZE_FOR_OUTLIER_FILTER) {
+            return powerList
+        }
+
+        val sortedPowerList = powerList.sorted()
+        val medianPower = sortedPowerList[(sortedPowerList.size - 1) / 2]
+        val maxNormalPower = medianPower * SCREEN_OFF_POWER_HIGH_OUTLIER_MULTIPLIER
+        val filteredPowerList = powerList.filter { it <= maxNormalPower }
+        return filteredPowerList.ifEmpty { powerList }
     }
 
     fun getScreenOffUsedPercentage(): Int {
-        if (dischargingRecords.isNotEmpty()) {
-            var percentage = 0
-            for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
-                if (dischargingRecords[i].packageName == "standby") {
-                    percentage +=
-                        dischargingRecords[i].batteryPercentage - dischargingRecords[i + 1].batteryPercentage
-                }
-            }
-            return percentage
+        return getScreenUsagePercentages().second
+    }
+
+    private fun getScreenUsagePercentages(): Pair<Int, Int> {
+        if (dischargingRecords.isEmpty()) {
+            return Pair(0, 0)
         }
-        return 0
+
+        var totalUsedPercentage = 0
+        var screenOffUsedPercentage = 0.0
+        for (i in (dischargingRecords.lastIndex - 1) downTo 0) {
+            val currentRecord = dischargingRecords[i]
+            val nextRecord = dischargingRecords[i + 1]
+            val intervalDuration = getIntervalDuration(currentRecord, nextRecord)
+            if (intervalDuration <= 0L) {
+                continue
+            }
+
+            val intervalUsedPercentage =
+                (currentRecord.batteryPercentage - nextRecord.batteryPercentage).coerceAtLeast(0)
+            if (intervalUsedPercentage == 0) {
+                continue
+            }
+
+            val screenOffDuration = estimateScreenOffDuration(currentRecord, nextRecord)
+            totalUsedPercentage += intervalUsedPercentage
+            screenOffUsedPercentage += intervalUsedPercentage.toDouble() *
+                    screenOffDuration.toDouble() / intervalDuration.toDouble()
+        }
+
+        val roundedScreenOffUsedPercentage =
+            screenOffUsedPercentage.roundToInt().coerceIn(0, totalUsedPercentage)
+        return Pair(
+            totalUsedPercentage - roundedScreenOffUsedPercentage,
+            roundedScreenOffUsedPercentage
+        )
     }
 
     fun getRemainingUsageTime(): Long {
-        val remainingPercentage = records.lastOrNull()?.batteryPercentage
-        if (remainingPercentage != null && remainingPercentage > 0) {
-            val screenOnDuration = getScreenOnDuration()
-            val screenOnAveragePower = getScreenOnAveragePower()
-            val screenOnUsedPercentage = getScreenOnUsedPercentage()
-            if (screenOnDuration > 0 && screenOnAveragePower > 0 && screenOnUsedPercentage > 0) {
-                val predictBatteryCapacity =
-                    (screenOnAveragePower.toDouble() * screenOnDuration / 3600.0) /
-                            ((screenOnUsedPercentage.toDouble() + 1.0) / 100.0)
-                val remainingBatteryCapacity = predictBatteryCapacity * remainingPercentage / 100.0
-                return (remainingBatteryCapacity / screenOnAveragePower * 3600.0).toLong()
-            }
+        val latestRecord = records.lastOrNull() ?: return 0L
+        if (!latestRecord.isDischarging() || latestRecord.batteryPercentage <= 0) {
+            return 0L
         }
-        return 0L
+
+        var nextRecord = latestRecord
+        var screenOnDuration = 0L
+        var screenOnUsedPercentage = 0.0
+        for (i in records.lastIndex - 1 downTo 0) {
+            val candidate = records[i]
+            if (!candidate.isDischarging() || candidate.timestamp >= nextRecord.timestamp) {
+                break
+            }
+
+            val intervalUsedPercentage = candidate.batteryPercentage - nextRecord.batteryPercentage
+            if (intervalUsedPercentage < 0) {
+                break
+            }
+
+            val sampleDuration = latestRecord.timestamp - candidate.timestamp
+            val usedPercentage = candidate.batteryPercentage - latestRecord.batteryPercentage
+            if (sampleDuration > REMAINING_TIME_LOOKBACK_SECONDS ||
+                usedPercentage > MAX_REMAINING_TIME_SAMPLE_DROP_PERCENTAGE
+            ) {
+                break
+            }
+
+            val intervalDuration = nextRecord.timestamp - candidate.timestamp
+            val screenOffDuration = estimateScreenOffDuration(candidate, nextRecord)
+            val intervalScreenOnDuration = intervalDuration - screenOffDuration
+            if (intervalScreenOnDuration > 0L) {
+                screenOnDuration += intervalScreenOnDuration
+                screenOnUsedPercentage += intervalUsedPercentage.toDouble() *
+                        intervalScreenOnDuration.toDouble() / intervalDuration.toDouble()
+            }
+            nextRecord = candidate
+        }
+
+        if (screenOnDuration < MIN_REMAINING_TIME_SCREEN_ON_DURATION_SECONDS ||
+            screenOnUsedPercentage <= 0.0
+        ) {
+            return 0L
+        }
+
+        return (screenOnDuration.toDouble() * latestRecord.batteryPercentage /
+                screenOnUsedPercentage)
+            .roundToLong()
+    }
+
+    private fun BatteryStatsItem.isDischarging(): Boolean {
+        return batteryStatus == BatteryManager.BATTERY_STATUS_DISCHARGING ||
+                batteryStatus == BatteryManager.BATTERY_STATUS_NOT_CHARGING
     }
 
     fun getPerappBatteryStatsReport(): Map<String, BatteryStatsReport> {
@@ -280,7 +416,7 @@ class BatteryStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
                 perappRecords[item.packageName]!!.add(item)
             }
             for ((pkgName, records) in perappRecords) {
-                if (pkgName != "other" && pkgName != "standby") {
+                if (pkgName != "standby") {
                     val batteryStatsReport = generateBatteryStatsReport(records)
                     if (batteryStatsReport != null) {
                         perappBatteryStatsReport[pkgName] = batteryStatsReport
@@ -322,18 +458,26 @@ class BatteryStatsRecordAnalysis(private val records: List<BatteryStatsItem>) {
 
             val report = BatteryHealthReport()
             for (sample in samples) {
-                val chargedPercentage =
-                    sample.last().batteryPercentage - sample.first().batteryPercentage
+                var maxPercentage = sample.first().batteryPercentage
+                for (item in sample) {
+                    if (item.batteryPercentage > maxPercentage) {
+                        maxPercentage = item.batteryPercentage
+                    }
+                }
+
+                val chargedPercentage = maxPercentage - sample.first().batteryPercentage
                 if (sample.size > 100 && chargedPercentage > 50) {
                     report.totalChargedPercentage += chargedPercentage
                     report.sampleSize++
 
                     var chargedCapacity = 0.0
-                    for (i in 0 until sample.lastIndex) {
+                    for (i in 0 until sample.size - 1) {
                         val duration = sample[i + 1].timestamp - sample[i].timestamp
-                        val power =
-                            (sample[i].batteryPower + sample[i + 1].batteryPower).toDouble() / 2.0
-                        chargedCapacity += power * duration / 3600.0
+                        if (duration in 1..MAX_RECORD_GAP_SECONDS) {
+                            val power =
+                                (sample[i].batteryPower + sample[i + 1].batteryPower).toDouble() / 2.0
+                            chargedCapacity += power * duration / 3600.0
+                        }
                     }
                     report.totalChargedCapacity += chargedCapacity.toInt()
                 }

@@ -122,6 +122,39 @@ class BatteryDataSQLHelper(context: Context) :
         return null
     }
 
+    fun readLatest(): BatteryStatsItem? {
+        try {
+            readableDatabase.query(
+                tableName,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "timestamp DESC",
+                "1"
+            ).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val item = BatteryStatsItem()
+                    item.timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp"))
+                    item.packageName = cursor.getString(cursor.getColumnIndexOrThrow("packageName"))
+                    item.batteryStatus =
+                        cursor.getInt(cursor.getColumnIndexOrThrow("batteryStatus"))
+                    item.batteryPercentage =
+                        cursor.getInt(cursor.getColumnIndexOrThrow("batteryPercentage"))
+                    item.batteryPower =
+                        cursor.getInt(cursor.getColumnIndexOrThrow("batteryPower"))
+                    item.batteryTemperature =
+                        cursor.getInt(cursor.getColumnIndexOrThrow("batteryTemperature"))
+                    return item
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
     fun deleteAll() {
         try {
             writableDatabase.execSQL("DROP TABLE IF EXISTS ${tableName}")

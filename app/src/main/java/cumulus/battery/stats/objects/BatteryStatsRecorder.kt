@@ -48,6 +48,10 @@ object BatteryStatsRecorder {
         return mutableListOf()
     }
 
+    fun getLatestRecord(): BatteryStatsItem? {
+        return sqlHelper?.readLatest()
+    }
+
     fun optimize() {
         CoroutineScope(Dispatchers.IO).launch {
             if (sqlHelper != null) {

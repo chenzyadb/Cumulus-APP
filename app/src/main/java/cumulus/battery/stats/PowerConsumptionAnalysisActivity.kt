@@ -1,5 +1,6 @@
 package cumulus.battery.stats
 
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.drawable.Drawable
@@ -325,16 +326,33 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            for ((pkgName, batteryStatsReport) in perappBatteryStatsReport) {
+            val appDetails = perappBatteryStatsReport
+                .filterKeys { it != "standby" }
+                .entries
+                .sortedByDescending {
+                    it.value.averagePower.toLong() * it.value.duration
+                }
+            for ((pkgName, batteryStatsReport) in appDetails) {
                 AppDetailsBar(pkgName, batteryStatsReport)
             }
         }
     }
 
+    @SuppressLint("UseCompatLoadingForDrawables")
     @Composable
     private fun AppDetailsBar(pkgName: String, batteryStatsReport: BatteryStatsReport) {
-        val appIcon = getAppIcon(pkgName)?.toBitmap()?.asImageBitmap()
-        val appName = getAppName(pkgName)
+        val appIcon = if (pkgName != "other") {
+            getAppIcon(pkgName)?.toBitmap()?.asImageBitmap()
+        } else {
+            resources.getDrawable(R.mipmap.default_app_icon, null).toBitmap().asImageBitmap()
+        }
+
+        val appName = if (pkgName != "other") { 
+            getAppName(pkgName)
+        } else {
+            "其他"
+        }
+        
         if (appIcon != null && appName != null) {
             Column(
                 modifier = Modifier

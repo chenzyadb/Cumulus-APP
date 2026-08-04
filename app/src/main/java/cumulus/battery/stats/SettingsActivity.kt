@@ -11,13 +11,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AlertDialog
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +42,7 @@ import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusColor
 import cumulus.battery.stats.widgets.GoToButton
+import java.util.Calendar
 
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,7 +110,7 @@ class SettingsActivity : ComponentActivity() {
                                     .fillMaxWidth(),
                                 text = "应用设置",
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Bold,
                                 color = cumulusColor().purple,
                                 maxLines = 1
                             )
@@ -120,7 +124,7 @@ class SettingsActivity : ComponentActivity() {
                                     .fillMaxWidth(),
                                 text = "关于",
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Bold,
                                 color = cumulusColor().purple,
                                 maxLines = 1
                             )
@@ -147,7 +151,7 @@ class SettingsActivity : ComponentActivity() {
             modifier = Modifier
                 .padding(top = 10.dp)
                 .fillMaxWidth()
-                .height(40.dp),
+                .height(45.dp),
             text = "请求忽略电池优化"
         ) {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
@@ -162,7 +166,7 @@ class SettingsActivity : ComponentActivity() {
             modifier = Modifier
                 .padding(top = 5.dp)
                 .fillMaxWidth()
-                .height(40.dp),
+                .height(45.dp),
             text = "清除历史数据"
         ) {
             val builder = AlertDialog.Builder(this)
@@ -190,7 +194,7 @@ class SettingsActivity : ComponentActivity() {
             modifier = Modifier
                 .padding(top = 5.dp)
                 .fillMaxWidth()
-                .height(40.dp),
+                .height(45.dp),
             text = "调整电流显示"
         ) {
             val intent =
@@ -206,31 +210,48 @@ class SettingsActivity : ComponentActivity() {
             packageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA).versionName
         val versionCode =
             packageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA).versionCode
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
 
         Column(
             modifier = Modifier
-                .padding(start = 20.dp, end = 20.dp, top = 5.dp)
+                .padding(top = 20.dp)
+                .height(130.dp)
                 .fillMaxWidth()
-                .height(90.dp),
-            verticalArrangement = Arrangement.Center,
+                .background(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(10.dp)
+                ),
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.Start
         ) {
-            Row(
+             Row(
                 modifier = Modifier
+                    .padding(start = 20.dp, end = 20.dp, top = 10.dp)
                     .fillMaxWidth()
-                    .height(40.dp),
+                    .height(50.dp),
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(15.dp),
+                    color = cumulusColor().purple.copy(alpha = 0.2f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Cu",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = cumulusColor().purple,
+                            maxLines = 1
+                        )
+                    }
+                }
                 Text(
-                    text = "Cu",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = cumulusColor().pink,
-                    maxLines = 1
-                )
-                Text(
-                    text = "mulus",
+                    modifier = Modifier
+                        .padding(start = 10.dp, end = 10.dp)
+                        .fillMaxWidth(),
+                    text = "Cumulus",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = cumulusColor().blue,
@@ -238,14 +259,22 @@ class SettingsActivity : ComponentActivity() {
                 )
             }
             Text(
-                text = "版本: ${versionName} (${versionCode})",
+                modifier = Modifier
+                    .padding(start = 20.dp, end = 20.dp, top = 10.dp)
+                    .height(20.dp)
+                    .fillMaxWidth(),
+                text = "版本 ${versionName} · Build ${versionCode}",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.secondary,
                 maxLines = 1
             )
             Text(
-                text = "Copyright (C) Chenzyadb 2025",
+                modifier = Modifier
+                    .padding(start = 20.dp, end = 20.dp, top = 5.dp)
+                    .height(20.dp)
+                    .fillMaxWidth(),
+                text = "Copyright (C) Chenzyadb ${currentYear}",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.secondary,

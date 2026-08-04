@@ -40,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,10 +79,7 @@ class MainActivity : ComponentActivity() {
 
         BatteryStatsProvider.init(applicationContext)
         BatteryStatsRecorder.init(applicationContext)
-
-        CoroutineScope(Dispatchers.Default).launch {
-            BatteryStatsRecorder.optimize()
-        }
+        BatteryStatsRecorder.optimize()
 
         setContent {
             CumulusTheme {
@@ -247,7 +245,6 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun BackgroundServiceHint() {
         AnimatedVisibility(visible = !backgroundServiceCreated) {
-            val buttonColor = cumulusColor().yellow
             TextButton(
                 onClick = {
                     Toast.makeText(
@@ -264,7 +261,7 @@ class MainActivity : ComponentActivity() {
                     .height(50.dp)
                     .fillMaxWidth()
                     .background(
-                        color = buttonColor,
+                        color = Color.Red.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(10.dp)
                     ),
                 shape = RoundedCornerShape(10.dp)
@@ -300,7 +297,6 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun AdjustCurrentHint() {
         AnimatedVisibility(visible = !currentAdjusted) {
-            val buttonColor = cumulusColor().yellow
             TextButton(
                 onClick = {
                     val intent =
@@ -313,7 +309,7 @@ class MainActivity : ComponentActivity() {
                     .height(50.dp)
                     .fillMaxWidth()
                     .background(
-                        color = buttonColor,
+                        color = Color.Red.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(10.dp)
                     ),
                 shape = RoundedCornerShape(10.dp)
