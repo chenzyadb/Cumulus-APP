@@ -35,7 +35,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,8 +50,8 @@ import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusColor
 import cumulus.battery.stats.utils.BatteryStatsRecordAnalysis
+import cumulus.battery.stats.utils.BatteryUsageReport
 import cumulus.battery.stats.utils.DurationToText
-import cumulus.battery.stats.widgets.DataPointList
 import cumulus.battery.stats.widgets.GoToButton
 import cumulus.battery.stats.widgets.SingleLineChart
 import kotlinx.coroutines.CoroutineScope
@@ -70,9 +69,7 @@ class MainActivity : ComponentActivity() {
     private var batteryPower: Int by mutableIntStateOf(0)
     private var batteryTemperature: Int by mutableIntStateOf(0)
     private var batteryStatus: Int by mutableIntStateOf(BatteryManager.BATTERY_STATUS_UNKNOWN)
-    private var batteryPercentageDataPoints: DataPointList by mutableStateOf(listOf())
-    private var screenOnDuration: Long by mutableLongStateOf(0)
-    private var remainingUsageTime: Long by mutableLongStateOf(0)
+    private var usageReport: BatteryUsageReport by mutableStateOf(BatteryUsageReport())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -357,12 +354,13 @@ class MainActivity : ComponentActivity() {
             horizontalAlignment = Alignment.Start
         ) {
             SingleLineChart(
-                dataPointList = batteryPercentageDataPoints,
+                dataPointList = usageReport.percentageDataPoints,
                 modifier = Modifier
                     .padding(start = 20.dp, end = 20.dp, top = 20.dp)
                     .height(120.dp)
                     .fillMaxWidth(),
-                lineColor = cumulusColor().blue
+                lineColor = cumulusColor().blue,
+                yAxisMaxValue = 100
             )
             Row(
                 modifier = Modifier
@@ -381,7 +379,7 @@ class MainActivity : ComponentActivity() {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = DurationToText(screenOnDuration),
+                    text = DurationToText(usageReport.screenOnDuration),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = cumulusColor().blue,
@@ -397,7 +395,7 @@ class MainActivity : ComponentActivity() {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = DurationToText(remainingUsageTime),
+                    text = DurationToText(usageReport.remainingUsageTime),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = cumulusColor().blue,
@@ -472,10 +470,7 @@ class MainActivity : ComponentActivity() {
     private fun updateRecordAnalysis() {
         CoroutineScope(Dispatchers.Default).launch {
             val records = BatteryStatsRecorder.getRecords()
-            val recordAnalysis = BatteryStatsRecordAnalysis(records)
-            batteryPercentageDataPoints = recordAnalysis.getUsagePercentageDataPoints()
-            screenOnDuration = recordAnalysis.getScreenOnDuration()
-            remainingUsageTime = recordAnalysis.getRemainingUsageTime()
+            usageReport = BatteryStatsRecordAnalysis(records).analyzeUsage()
         }
     }
 

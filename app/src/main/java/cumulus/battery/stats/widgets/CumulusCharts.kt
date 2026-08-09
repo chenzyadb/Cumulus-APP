@@ -27,6 +27,7 @@ typealias DataPointMutableList = MutableList<Pair<Float, Float>>
 
 private const val MAX_CHART_DATA_POINTS = 500
 private const val REGULAR_CHART_TICK_INTERVALS = 3
+private const val FIXED_RANGE_TICK_INTERVALS = 4
 private val NICE_STEP_MULTIPLIERS = doubleArrayOf(1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0)
 private val AVERAGE_LINE_COLOR = Color(0xFF666666)
 
@@ -97,7 +98,17 @@ private fun SimplifyDataPoints(dataPoints: DataPointList): DataPointList {
     return simplifiedDataPoints
 }
 
-private fun GetDataPointsTickValues(dataPoints: DataPointList): List<Int> {
+private fun GetDataPointsTickValues(
+    dataPoints: DataPointList,
+    yAxisMaxValue: Int? = null
+): List<Int> {
+    if (yAxisMaxValue != null) {
+        require(yAxisMaxValue > 0) { "yAxisMaxValue must be greater than zero" }
+        return (0..FIXED_RANGE_TICK_INTERVALS).map { interval ->
+            (yAxisMaxValue.toDouble() * interval / FIXED_RANGE_TICK_INTERVALS).roundToInt()
+        }.distinct()
+    }
+
     var dataMax = 0f
     for (dataPoint in dataPoints) {
         if (dataPoint.second > dataMax) {
@@ -265,13 +276,14 @@ private fun BuildChartPaths(
 fun SingleLineChart(
     modifier: Modifier,
     dataPointList: DataPointList,
-    lineColor: Color
+    lineColor: Color,
+    yAxisMaxValue: Int? = null
 ) {
     val density = LocalContext.current.resources.displayMetrics.density
     val primaryColor = MaterialTheme.colorScheme.primary
     val tickMarkColor = Color(0xFFAAAAAA)
     val dataPoints = SimplifyDataPoints(NormalizeDataPoints(dataPointList))
-    val tickValues = GetDataPointsTickValues(dataPoints)
+    val tickValues = GetDataPointsTickValues(dataPoints, yAxisMaxValue)
     val tickMax = tickValues.last().toFloat()
 
     Canvas(

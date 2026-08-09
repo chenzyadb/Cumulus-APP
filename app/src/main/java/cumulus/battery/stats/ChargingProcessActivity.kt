@@ -39,9 +39,8 @@ import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusColor
-import cumulus.battery.stats.utils.BatteryHealthReport
 import cumulus.battery.stats.utils.BatteryStatsRecordAnalysis
-import cumulus.battery.stats.utils.BatteryStatsReport
+import cumulus.battery.stats.utils.ChargingAnalysisReport
 import cumulus.battery.stats.utils.DurationToText
 import cumulus.battery.stats.widgets.MultiLineChart
 import cumulus.battery.stats.widgets.SingleLineChart
@@ -50,8 +49,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class ChargingProcessActivity : ComponentActivity() {
-    private var chargingBatteryStatsReport: BatteryStatsReport by mutableStateOf(BatteryStatsReport())
-    private var batteryHealthReport: BatteryHealthReport by mutableStateOf(BatteryHealthReport())
+    private var analysisReport: ChargingAnalysisReport by
+        mutableStateOf(ChargingAnalysisReport())
+    private val chargingStats get() = analysisReport.chargingStats
+    private val batteryHealth get() = analysisReport.batteryHealth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -170,7 +171,7 @@ class ChargingProcessActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = DurationToText(chargingBatteryStatsReport.duration),
+                        text = DurationToText(chargingStats.duration),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = cumulusColor().blue,
@@ -185,7 +186,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val chargingPercentage = chargingBatteryStatsReport.percentageDifference
+                    val chargingPercentage = chargingStats.percentageDifference
                     Text(
                         text = "充入电量",
                         fontSize = 12.sp,
@@ -209,7 +210,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     val maxPowerText =
-                        String.format("%.2f", chargingBatteryStatsReport.maxPower.toFloat() / 1000)
+                        String.format("%.2f", chargingStats.maxPower.toFloat() / 1000)
                     Text(
                         text = "最高功率",
                         fontSize = 12.sp,
@@ -243,7 +244,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     val averagePowerText =
                         String.format(
                             "%.2f",
-                            chargingBatteryStatsReport.averagePower.toFloat() / 1000
+                            chargingStats.averagePower.toFloat() / 1000
                         )
                     Text(
                         text = "平均功率",
@@ -267,7 +268,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val chargingMaxTemperature = chargingBatteryStatsReport.maxTemperature
+                    val chargingMaxTemperature = chargingStats.maxTemperature
                     Text(
                         text = "最高温度",
                         fontSize = 12.sp,
@@ -290,7 +291,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val chargingAverageTemperature = chargingBatteryStatsReport.averageTemperature
+                    val chargingAverageTemperature = chargingStats.averageTemperature
                     Text(
                         text = "平均温度",
                         fontSize = 12.sp,
@@ -336,8 +337,9 @@ class ChargingProcessActivity : ComponentActivity() {
                     .padding(start = 20.dp, end = 20.dp, top = 10.dp)
                     .fillMaxWidth()
                     .height(120.dp),
-                dataPointList = chargingBatteryStatsReport.percentageDataPoints,
-                lineColor = cumulusColor().blue
+                dataPointList = chargingStats.percentageDataPoints,
+                lineColor = cumulusColor().blue,
+                yAxisMaxValue = 100
             )
         }
     }
@@ -368,8 +370,8 @@ class ChargingProcessActivity : ComponentActivity() {
                     .padding(start = 20.dp, end = 20.dp, top = 10.dp)
                     .fillMaxWidth()
                     .height(150.dp),
-                dataPointList0 = chargingBatteryStatsReport.powerDataPoints,
-                dataPointList1 = chargingBatteryStatsReport.temperatureDataPoints,
+                dataPointList0 = chargingStats.powerDataPoints,
+                dataPointList1 = chargingStats.temperatureDataPoints,
                 line0Color = cumulusColor().blue,
                 line1Color = cumulusColor().pink,
                 line0Title = "功率(W)",
@@ -417,7 +419,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = batteryHealthReport.sampleSize.toString(),
+                    text = batteryHealth.sampleSize.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = cumulusColor().blue,
@@ -450,7 +452,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = batteryHealthReport.totalChargedCapacity.toString(),
+                    text = batteryHealth.totalChargedCapacity.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = cumulusColor().blue,
@@ -466,7 +468,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = batteryHealthReport.totalChargedPercentage.toString(),
+                    text = batteryHealth.totalChargedPercentage.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = cumulusColor().blue,
@@ -499,7 +501,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = batteryHealthReport.estimatingCapacity.toString(),
+                    text = batteryHealth.estimatingCapacity.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = cumulusColor().blue,
@@ -515,7 +517,7 @@ class ChargingProcessActivity : ComponentActivity() {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = (batteryHealthReport.estimatingCapacity.toDouble() / 3.85).toInt()
+                    text = (batteryHealth.estimatingCapacity.toDouble() / 3.85).toInt()
                         .toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
@@ -543,7 +545,8 @@ class ChargingProcessActivity : ComponentActivity() {
                 val designCapacity =
                     BatteryStatsProvider.getBatteryDesignCapacity(applicationContext)
                 val healthPercentage =
-                    (batteryHealthReport.estimatingCapacity.toDouble() / 3.85) / designCapacity * 100.0
+                    (batteryHealth.estimatingCapacity.toDouble() / 3.85) /
+                            designCapacity * 100.0
                 Text(
                     text = "标称容量",
                     fontSize = 14.sp,
@@ -680,9 +683,7 @@ class ChargingProcessActivity : ComponentActivity() {
     private fun updateRecordAnalysis() {
         CoroutineScope(Dispatchers.Default).launch {
             val records = BatteryStatsRecorder.getRecords()
-            val recordAnalysis = BatteryStatsRecordAnalysis(records)
-            chargingBatteryStatsReport = recordAnalysis.getChargingBatteryStatsReport()
-            batteryHealthReport = recordAnalysis.getBatteryHealthReport()
+            analysisReport = BatteryStatsRecordAnalysis(records).analyzeCharging()
         }
     }
 }

@@ -30,8 +30,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,25 +42,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
+import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusColor
 import cumulus.battery.stats.utils.BatteryStatsRecordAnalysis
 import cumulus.battery.stats.utils.BatteryStatsReport
 import cumulus.battery.stats.utils.DurationToText
+import cumulus.battery.stats.utils.PowerConsumptionReport
 import cumulus.battery.stats.widgets.MultiLineChart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class PowerConsumptionAnalysisActivity : ComponentActivity() {
-    private var screenOnUsedPercentage: Int by mutableIntStateOf(0)
-    private var screenOffUsedPercentage: Int by mutableIntStateOf(0)
-    private var screenOnAveragePower: Int by mutableIntStateOf(0)
-    private var screenOffAveragePower: Int by mutableIntStateOf(0)
-    private var screenOnDuration: Long by mutableLongStateOf(0)
-    private var screenOffDuration: Long by mutableLongStateOf(0)
-    private var perappBatteryStatsReport: Map<String, BatteryStatsReport> by mutableStateOf(mapOf())
+    private var analysisReport: PowerConsumptionReport by
+        mutableStateOf(PowerConsumptionReport())
+    private val screenOnStats get() = analysisReport.screenOn
+    private val screenOffStats get() = analysisReport.screenOff
+    private val appStats get() = analysisReport.appStats
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -186,7 +184,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = "${screenOnUsedPercentage}%",
+                        text = "${screenOnStats.usedPercentage}%",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = cumulusColor().blue,
@@ -208,7 +206,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = "${screenOnAveragePower}mW",
+                        text = "${screenOnStats.averagePower}mW",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = cumulusColor().blue,
@@ -230,7 +228,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = DurationToText(screenOnDuration),
+                        text = DurationToText(screenOnStats.duration),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = cumulusColor().blue,
@@ -260,7 +258,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = "${screenOffUsedPercentage}%",
+                        text = "${screenOffStats.usedPercentage}%",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = cumulusColor().blue,
@@ -282,7 +280,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = "${screenOffAveragePower}mW",
+                        text = "${screenOffStats.averagePower}mW",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = cumulusColor().blue,
@@ -304,7 +302,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = DurationToText(screenOffDuration),
+                        text = DurationToText(screenOffStats.duration),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = cumulusColor().blue,
@@ -326,7 +324,7 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val appDetails = perappBatteryStatsReport
+            val appDetails = appStats
                 .filterKeys { it != "standby" }
                 .entries
                 .sortedByDescending {
@@ -437,8 +435,9 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val usedPercentage = (batteryStatsReport.averagePower.toDouble() *
-                                    batteryStatsReport.duration) / (screenOnAveragePower * screenOnDuration) *
-                                    screenOnUsedPercentage
+                                    batteryStatsReport.duration) /
+                                    (screenOnStats.averagePower * screenOnStats.duration) *
+                                    screenOnStats.usedPercentage
                             var usedPercentageText = "<1%"
                             if (usedPercentage >= 1.0) {
                                 usedPercentageText = usedPercentage.toInt().toString() + "%"
@@ -581,14 +580,10 @@ class PowerConsumptionAnalysisActivity : ComponentActivity() {
     private fun updateRecordAnalysis() {
         CoroutineScope(Dispatchers.Default).launch {
             val records = BatteryStatsRecorder.getRecords()
-            val recordAnalysis = BatteryStatsRecordAnalysis(records)
-            screenOnUsedPercentage = recordAnalysis.getScreenOnUsedPercentage()
-            screenOffUsedPercentage = recordAnalysis.getScreenOffUsedPercentage()
-            screenOnAveragePower = recordAnalysis.getScreenOnAveragePower()
-            screenOffAveragePower = recordAnalysis.getScreenOffAveragePower()
-            screenOnDuration = recordAnalysis.getScreenOnDuration()
-            screenOffDuration = recordAnalysis.getScreenOffDuration()
-            perappBatteryStatsReport = recordAnalysis.getPerappBatteryStatsReport()
+            val designBatteryCapacityMah =
+                BatteryStatsProvider.getBatteryDesignCapacity(applicationContext)
+            analysisReport = BatteryStatsRecordAnalysis(records)
+                .analyzePowerConsumption(designBatteryCapacityMah)
         }
     }
 
