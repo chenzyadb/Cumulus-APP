@@ -126,7 +126,7 @@ fun Switch(
                 Text(
                     text = text,
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1
                 )

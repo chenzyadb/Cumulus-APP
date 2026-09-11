@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
     private var timer: Timer? = null
     private var backgroundServiceCreated by mutableStateOf(false)
     private var currentAdjusted by mutableStateOf(false)
+    private var preciseCurrent by mutableStateOf(false)
     private var batteryCapacity: Int by mutableIntStateOf(0)
     private var batteryCurrent: Int by mutableIntStateOf(0)
     private var batteryPower: Int by mutableIntStateOf(0)
@@ -182,6 +183,7 @@ class MainActivity : ComponentActivity() {
         return super.onKeyUp(keyCode, event)
     }
 
+    @SuppressLint("DefaultLocale")
     @Composable
     private fun BatteryStatsBar() {
         val statusString = hashMapOf(
@@ -227,8 +229,21 @@ class MainActivity : ComponentActivity() {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                val batteryPowerText = if (preciseCurrent) {
+                    batteryPower.toString() + " mW"
+                } else {
+                    String.format("%.2f W", (batteryPower.toFloat() / 1000))
+                }
+
+                val batteryCurrentText = if (preciseCurrent) {
+                    batteryCurrent.toString() + " mA"
+                } else {
+                    String.format("%.2f A", (batteryCurrent.toFloat() / 1000))
+                }
+
                 Text(
-                    text = "${batteryPower} mW (${batteryCurrent} mA) ${batteryTemperature} °C",
+                    text = "${batteryPowerText} (${batteryCurrentText}) ${batteryTemperature} °C",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.secondary,
@@ -477,6 +492,7 @@ class MainActivity : ComponentActivity() {
     private fun updateBatteryStats() {
         backgroundServiceCreated = BackgroundService.isServiceCreated()
         currentAdjusted = BatteryStatsProvider.isCurrentAdjusted()
+        preciseCurrent = BatteryStatsProvider.isPreciseCurrent()
         batteryCapacity = BatteryStatsProvider.getBatteryCapacity(applicationContext)
         batteryCurrent = BatteryStatsProvider.getBatteryCurrent(applicationContext)
         batteryPower =

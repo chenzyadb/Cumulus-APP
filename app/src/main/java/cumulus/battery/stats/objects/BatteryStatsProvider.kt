@@ -189,6 +189,12 @@ object BatteryStatsProvider {
         }
     }
 
+    fun setPreciseCurrent(preciseCurrent: Boolean) {
+        sharedPreferences?.edit {
+            putBoolean("preciseCurrent", preciseCurrent)
+        }
+    }
+
     fun isDualBattery(): Boolean {
         if (sharedPreferences != null) {
             return sharedPreferences!!.getBoolean("dualBattery", false)
@@ -215,5 +221,12 @@ object BatteryStatsProvider {
             return sharedPreferences!!.getBoolean("currentAdjusted", false)
         }
         return false
+    }
+
+    fun isPreciseCurrent(): Boolean {
+        if (sharedPreferences != null) {
+            return sharedPreferences!!.getBoolean("preciseCurrent", true)
+        }
+        return true
     }
 }

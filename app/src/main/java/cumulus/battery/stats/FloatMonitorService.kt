@@ -96,20 +96,35 @@ class FloatMonitorService : Service() {
         windowManager.removeViewImmediate(floatWindow)
     }
 
+    @SuppressLint("DefaultLocale")
     private fun updateMonitorText() {
         val batteryCapacity = BatteryStatsProvider.getBatteryCapacity(applicationContext)
         val batteryTemperature = BatteryStatsProvider.getBatteryTemperature(applicationContext)
         val batteryCurrent = BatteryStatsProvider.getBatteryCurrent(applicationContext)
         val batteryPower =
             BatteryStatsProvider.getBatteryVoltage(applicationContext) * batteryCurrent / 1000
+        val preciseCurrent = BatteryStatsProvider.isPreciseCurrent()
         val cpuFreqs = CpuStatsProvider.getCpuFreqs()
         val cpuGovernor = CpuStatsProvider.getCpuGovernor()
         val foregroundPkgName = BatteryStatsRecorder.getLatestRecord()?.packageName.orEmpty()
+
+        val batteryPowerText = if (preciseCurrent) {
+            batteryPower.toString() + " mW"
+        } else {
+            String.format("%.2f W", (batteryPower.toFloat() / 1000))
+        }
+
+        val batteryCurrentText = if (preciseCurrent) {
+            batteryCurrent.toString() + " mA"
+        } else {
+            String.format("%.2f A", (batteryCurrent.toFloat() / 1000))
+        }
+
         var monitorText = ""
         monitorText += "#App ${formatPackageName(foregroundPkgName)} \n"
         monitorText += "#Battery ${batteryCapacity} % ${batteryTemperature} °C \n"
-        monitorText += "#Power ${batteryPower} mW \n"
-        monitorText += "#Current ${batteryCurrent} mA \n"
+        monitorText += "#Power ${batteryPowerText} \n"
+        monitorText += "#Current ${batteryCurrentText} \n"
         for (cpuCore in 0 until cpuFreqs.size) {
             val cpuFreqMHz = cpuFreqs[cpuCore] / 1000
             monitorText += "#CPU${cpuCore}    ${cpuFreqMHz} MHz \n"

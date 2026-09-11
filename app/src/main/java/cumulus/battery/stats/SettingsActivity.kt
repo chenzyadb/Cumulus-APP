@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -38,13 +42,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import cumulus.battery.stats.objects.BatteryStatsProvider
 import cumulus.battery.stats.objects.BatteryStatsRecorder
 import cumulus.battery.stats.ui.theme.CumulusTheme
 import cumulus.battery.stats.ui.theme.cumulusColor
 import cumulus.battery.stats.widgets.GoToButton
+import cumulus.battery.stats.widgets.Switch
 import java.util.Calendar
 
 class SettingsActivity : ComponentActivity() {
+    private var preciseCurrent by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -117,6 +125,7 @@ class SettingsActivity : ComponentActivity() {
                             RequireIgnoreBatteryOptimizationButton()
                             DeleteHistoryDataButton()
                             AdjustCurrentButton()
+                            PreciseCurrentSwitch()
                             Text(
                                 modifier = Modifier
                                     .padding(start = 20.dp, top = 20.dp)
@@ -134,6 +143,11 @@ class SettingsActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        preciseCurrent = BatteryStatsProvider.isPreciseCurrent()
     }
 
     override fun getResources(): Resources {
@@ -200,6 +214,21 @@ class SettingsActivity : ComponentActivity() {
             val intent =
                 Intent(applicationContext, CurrentAdjustActivity::class.java)
             startActivity(intent)
+        }
+    }
+
+    @Composable
+    private fun PreciseCurrentSwitch() {
+        Switch(
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .fillMaxWidth()
+                .height(45.dp),
+            text = "更精确的电流信息",
+            state = preciseCurrent
+        ) { state ->
+            BatteryStatsProvider.setPreciseCurrent(state)
+            preciseCurrent = state
         }
     }
 
